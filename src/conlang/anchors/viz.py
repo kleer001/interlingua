@@ -38,6 +38,7 @@ def _summary_row(sig: ConceptSignature) -> str:
         f"<td>{sig.n_entries}</td>"
         f"<td>{sig.n_with_ipa}</td>"
         f"<td>{sig.n_languages}</td>"
+        f'<td class="proj">{_esc(sig.modal_projection)}</td>'
         f"<td>{sig.sharpness:.3f}</td>"
         f"</tr>"
     )
@@ -47,6 +48,7 @@ def _concept_block(sig: ConceptSignature, entries: list[AnchorEntry]) -> str:
     rows: list[str] = []
     for e in entries:
         ipa = _esc(e.ipa or "")
+        proj = _esc(e.projected_form or "")
         roman = _esc(e.romanization or "")
         ortho = _esc(e.orthography or "")
         rows.append(
@@ -56,6 +58,7 @@ def _concept_block(sig: ConceptSignature, entries: list[AnchorEntry]) -> str:
             f'<td class="form">{ortho}</td>'
             f'<td class="roman">{roman}</td>'
             f'<td class="ipa">{ipa}</td>'
+            f'<td class="proj">{proj}</td>'
             f"<td>{_esc(e.source or '')}</td>"
             f"</tr>"
         )
@@ -66,9 +69,25 @@ def _concept_block(sig: ConceptSignature, entries: list[AnchorEntry]) -> str:
             items.append(
                 f"<li><b>{_esc(ex['language'])}</b> "
                 f"<span class='form'>{_esc(ex.get('form') or '')}</span> "
-                f"<span class='ipa'>{_esc(ex.get('ipa') or '')}</span></li>"
+                f"<span class='ipa'>{_esc(ex.get('ipa') or '')}</span> "
+                f"<span class='proj'>&rarr; {_esc(ex.get('projected_form') or '')}</span></li>"
             )
         examples_html = "<ul class='examples'>" + "".join(items) + "</ul>"
+
+    proj_hist_html = ""
+    if sig.projection_histogram:
+        items = []
+        for form, count in sig.projection_histogram:
+            items.append(
+                f'<span class="proj-bin">{_esc(form)} <span class="count">x{count}</span></span>'
+            )
+        modal = _esc(sig.modal_projection)
+        proj_hist_html = (
+            f'<div class="proj-summary">'
+            f'<b>modal projection:</b> <span class="proj big">{modal}</span> '
+            f'&middot; <span class="muted">{sig.n_distinct_projections} distinct</span>'
+            f'<div class="proj-hist">{" ".join(items)}</div></div>'
+        )
 
     feat_pairs = list(zip(sig.feature_names, sig.mean_features, sig.var_features, strict=True))
     feat_pairs.sort(key=lambda t: t[2])  # by variance ascending = stable first
@@ -86,6 +105,7 @@ def _concept_block(sig: ConceptSignature, entries: list[AnchorEntry]) -> str:
     n_with_ipa {sig.n_with_ipa} ·
     n_languages {sig.n_languages}
   </div>
+  {proj_hist_html}
   {examples_html}
   <details>
     <summary>top-stable features (mean ± lowest variance)</summary>
@@ -97,7 +117,7 @@ def _concept_block(sig: ConceptSignature, entries: list[AnchorEntry]) -> str:
     <summary>{len(entries)} entries</summary>
     <table class="entries"><thead>
     <tr><th>language</th><th>code</th><th>form</th>
-        <th>romanization</th><th>ipa</th><th>source</th></tr>
+        <th>romanization</th><th>ipa</th><th>projected</th><th>source</th></tr>
     </thead><tbody>
     {"".join(rows)}
     </tbody></table>
@@ -138,6 +158,20 @@ th:hover { background: #ebebeb; }
   color: #06539e;
 }
 .roman { color: #555; font-style: italic; }
+.proj {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  color: #5a2691;
+  font-weight: 600;
+}
+.proj.big { font-size: 1.2em; padding: 0 4px; background: #f3eafe; }
+.proj-summary { margin: 0.3em 0; }
+.proj-hist {
+  margin: 0.3em 0; font-size: 12px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.proj-bin { padding: 1px 6px; background: #f3eafe; border-radius: 3px; color: #5a2691; }
+.proj-bin .count { color: #999; font-size: 11px; }
+.muted { color: #888; font-size: 12px; }
 .examples { margin: 0.4em 0 0.7em 1em; }
 .examples li { margin-bottom: 0.2em; }
 details summary { cursor: pointer; user-select: none; padding: 0.3em 0; color: #444; }
@@ -194,7 +228,8 @@ def render_html(
       <th onclick="sortBy(2,true)">n_entries</th>
       <th onclick="sortBy(3,true)">n_with_ipa</th>
       <th onclick="sortBy(4,true)">n_languages</th>
-      <th onclick="sortBy(5,true)">sharpness</th>
+      <th onclick="sortBy(5,false)">modal projection</th>
+      <th onclick="sortBy(6,true)">sharpness</th>
     </tr>
   </thead>
   <tbody>{summary_rows}</tbody>

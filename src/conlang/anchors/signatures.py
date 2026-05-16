@@ -38,6 +38,12 @@ class ConceptSignature:
     mean_features: list[float]
     var_features: list[float]
     sharpness: float
+    # Self-contained-matrix layer: projected forms in the project's 10C/5V
+    # inventory. `modal_projection` is the single most common form across
+    # languages; `projection_histogram` is the top-N (form, count) pairs.
+    modal_projection: str = ""
+    projection_histogram: list[tuple[str, int]] = field(default_factory=list)
+    n_distinct_projections: int = 0
     # Up to ~5 representative examples (language + IPA + form) for hover/UI.
     examples: list[dict] = field(default_factory=list)
 
@@ -64,6 +70,8 @@ def _sharpness_from_var(vars_: list[float], names: list[str]) -> float:
 
 
 def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSignature:
+    from collections import Counter
+
     rows = [e for e in entries if e.concept == concept]
     with_ipa = [e for e in rows if e.ipa]
     langs = sorted({e.language_code for e in rows if e.language_code})
@@ -75,6 +83,7 @@ def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSi
     # per-form summary is the natural unit for cross-linguistic variance.
     form_vectors: list[list[float]] = []
     examples: list[dict] = []
+    projections: list[str] = []
     seen_langs: set[str] = set()
     for e in with_ipa:
         segs = featurize_ipa(e.ipa or "")
@@ -82,6 +91,8 @@ def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSi
             continue
         per_form = [sum(seg[j] for seg in segs) / len(segs) for j in range(len(names))]
         form_vectors.append(per_form)
+        if e.projected_form:
+            projections.append(e.projected_form)
         if e.language_code not in seen_langs and len(examples) < 8:
             examples.append(
                 {
@@ -90,6 +101,7 @@ def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSi
                     "form": e.orthography,
                     "romanization": e.romanization,
                     "ipa": e.ipa,
+                    "projected_form": e.projected_form,
                     "n_segments": len(segs),
                 }
             )
@@ -97,6 +109,9 @@ def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSi
 
     means, vars_ = mean_var(form_vectors)
     sharpness = _sharpness_from_var(vars_, names)
+    proj_counter = Counter(projections)
+    modal = proj_counter.most_common(1)[0][0] if proj_counter else ""
+    histogram = proj_counter.most_common(10)
     return ConceptSignature(
         concept=concept,
         n_entries=len(rows),
@@ -107,6 +122,9 @@ def signature_for_concept(concept: str, entries: list[AnchorEntry]) -> ConceptSi
         mean_features=means,
         var_features=vars_,
         sharpness=sharpness,
+        modal_projection=modal,
+        projection_histogram=histogram,
+        n_distinct_projections=len(proj_counter),
         examples=examples,
     )
 

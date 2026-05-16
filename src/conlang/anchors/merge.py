@@ -169,7 +169,22 @@ def run(
             )
             stats.update({f"wiktipa_{k}": v for k, v in ipa_stats.items()})
 
+    # Project every IPA row into the 10C/5V inventory. Self-contained
+    # representation that downstream Stage-6 reads as the matrix.
     enriched = read_jsonl(v1_jsonl)
+    from .project import project_ipa
+
+    n_proj = 0
+    for e in enriched:
+        if e.ipa:
+            p = project_ipa(e.ipa)
+            if p:
+                e.projected_form = p
+                n_proj += 1
+    write_jsonl(enriched, v1_jsonl)
+    print(f"[project] {n_proj} rows projected to inventory", file=sys.stderr)
+    stats["projected"] = n_proj
+
     n_csv = _write_csv(enriched, v1_csv)
     print(f"[csv]   {n_csv} -> {v1_csv}", file=sys.stderr)
     return stats

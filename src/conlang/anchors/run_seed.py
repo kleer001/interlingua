@@ -35,6 +35,7 @@ CSV_COLUMNS: tuple[str, ...] = (
     "orthography",
     "romanization",
     "ipa",
+    "projected_form",
     "source",
     "source_url",
     "source_revid",

@@ -27,6 +27,12 @@ class AnchorEntry:
     source_revid: str | None  # for reproducibility (Wikipedia revision id, etc.)
     captured_at: str  # ISO date of capture
     notes: str | None = None  # free text — disambiguators, dialect tags
+    # Inventory projection: IPA segments mapped into the project's fixed
+    # 10C/5V CV(n) inventory (see anchors/inventory.py + anchors/project.py).
+    # This is the "self-contained" representation — uniform across all rows
+    # regardless of which source supplied the original IPA. Optional so
+    # legacy JSONL files (pre-projection) still parse.
+    projected_form: str | None = None
     extra: dict = field(default_factory=dict)  # source-specific structured extras
 
     def to_jsonl(self) -> str:
