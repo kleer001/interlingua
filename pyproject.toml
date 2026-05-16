@@ -14,10 +14,21 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "ruff"]
+slice = [
+  "sae-lens",
+  "torch",
+  "transformers",
+  "huggingface_hub[cli]",
+  "numpy",
+  "scikit-learn",
+  "networkx",
+  "pyvis",
+  "httpx",
+  "matplotlib",
+]
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
-only-include = ["main.py"]
+packages = ["src/conlang"]
 
 [tool.ruff]
 line-length = 100
