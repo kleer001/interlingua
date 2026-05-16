@@ -120,3 +120,31 @@ The anchor pool is a parallel workstream:
 4. **Tier 3 supplement.** Pull from scholarly sources for ideophone-rich languages, especially for concept categories where Tier 1 is thin.
 5. **LLM supplement** for gaps in major languages; flag all entries for review.
 6. **Attribute tagging.** Run against Stage 4 data when available.
+
+## Implementation status (2026-05)
+
+| Phase | Status | Notes |
+|---|---|---|
+| 1. Wikipedia seed | ✓ shipped | `conlang.anchors.run_seed` — 2971 entries, 50 concepts × 84 langs |
+| 2. PanLex expansion | redirected | `api.panlex.org` DNS dead; `panlex.org/snapshot` is a JS-SPA with no static download URL; HF mirror (`cointegrated/panlex-meanings`) exists at 100M-1B rows, overkill for ~110 concepts. Phase 2 redirected to Epitran-based IPA *enrichment* (`conlang.anchors.enrich_epitran`) — fills the IPA gap on existing rows, which is more impactful than adding 16 more languages. |
+| 3. Concept expansion | ✓ in pipeline | `conlang.anchors.run_wiktionary` — pulls translation tables for each english_seed across the 114-concept inventory; restricts to Interjection / Noun parts of speech. |
+| 4. Tier-3 scholarship | deferred | Requires manual PDF curation and per-source citation work. Defer until v1 ships and we know which categories are thinly covered (e.g., African ideophone systems for verb-of-manner concepts). |
+| 5. LLM elicitation | deferred | Hallucination risk for under-resourced languages is high and elicitation requires per-entry verification we can't automate. Revisit when the rest of the pipeline shows specific gaps in major languages. |
+| 6. Attribute tagging | skeleton shipped | `conlang.anchors.attributes` — hand-curated `AttributeBundle` registry per anchor-pool-sketch.md §"Attribute bucket"; `build_attribute_anchor_table()` emits `(concept, attribute, signature)` rows ready for Stage-5 embedding into SAE feature space. |
+
+The canonical pipeline:
+
+```
+Phase 1                   Phase 3                  Phase 2'             Phase 6
+[Wikipedia]──parse──┐
+                    ├─merge ──> anchors-merged ──enrich(Epitran)──> anchors-v1 ──> attribute-anchors
+[Wiktionary]─parse──┘                                                  │
+                                                                       └─ stays the source of truth
+```
+
+Outputs (on fauna, not in git):
+- `anchoring/processed/anchors-seed.{jsonl,csv}`        — Phase 1 only
+- `anchoring/interim/wiktionary-rows.{jsonl,csv}`       — Phase 3 only
+- `anchoring/processed/anchors-merged.jsonl`            — merge of both
+- `anchoring/processed/anchors-v1.{jsonl,csv}`          — merge + Epitran IPA
+- `anchoring/processed/attribute-anchors.jsonl`         — Phase 6 cross product
