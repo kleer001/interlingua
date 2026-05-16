@@ -30,6 +30,7 @@ anchors = [
   "httpx",
   "beautifulsoup4",
   "lxml",
+  "epitran",
 ]
 
 [tool.hatch.build.targets.wheel]
