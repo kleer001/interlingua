@@ -193,7 +193,15 @@ def fetch_targets(
         wait = max(0.0, min_delay_s - (time.monotonic() - last_fetch))
         if wait > 0:
             time.sleep(wait)
-        r = fetch_form(form, dest_dir)
+        try:
+            r = fetch_form(form, dest_dir)
+        except RuntimeError as e:
+            # Transient network failure (DNS, timeout). Log and move on —
+            # the cache is idempotent, so a later run picks up what we
+            # missed.
+            print(f"[neterr] {form!r}: {e}", flush=True)
+            last_fetch = time.monotonic()
+            continue
         last_fetch = time.monotonic()
         if r.missing:
             print(f"[miss]  {form!r} ({count} rows)", flush=True)
