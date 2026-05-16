@@ -8,8 +8,18 @@ __pycache__/
 htmlcov/
 
 # Env
-.venv/
+.venv
 .env
+
+# Claude Code session-local config
+.claude/
+
+# Pipeline artifacts (symlinked to fauna NVMe)
+data
+site/
+
+# pyvis runtime artifact (written next to slice.html by Network.write_html)
+lib/
 
 # OS / editor
 .DS_Store
