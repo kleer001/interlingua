@@ -26,9 +26,10 @@ from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
 
-from . import ANCHOR_INTERIM, ANCHOR_PROCESSED
+from . import ANCHOR_INTERIM, ANCHOR_PROCESSED, ANCHOR_RAW
 from .concepts import canonical_slug
 from .enrich_epitran import run as run_enrich
+from .parse_wiktionary_ipa import apply_lookup, build_ipa_lookup
 from .run_seed import CSV_COLUMNS
 from .schema import AnchorEntry, read_jsonl, write_jsonl
 
@@ -128,7 +129,9 @@ def run(
     merged_jsonl: Path = ANCHOR_PROCESSED / "anchors-merged.jsonl",
     v1_jsonl: Path = ANCHOR_PROCESSED / "anchors-v1.jsonl",
     v1_csv: Path = ANCHOR_PROCESSED / "anchors-v1.csv",
+    wiktionary_ipa_cache: Path = ANCHOR_RAW / "wiktionary_ipa",
     skip_enrich: bool = False,
+    skip_wiktionary_ipa: bool = False,
 ) -> dict[str, int]:
     streams: dict[str, Iterable[AnchorEntry]] = {}
     if wiki_jsonl.exists():
@@ -149,10 +152,26 @@ def run(
         return stats
 
     enrich_stats = run_enrich(merged_jsonl, v1_jsonl, overwrite=False)
+    stats.update({f"enrich_{k}": v for k, v in enrich_stats.items()})
+
+    # Wiktionary IPA fallback for anything Epitran couldn't handle.
+    if not skip_wiktionary_ipa and wiktionary_ipa_cache.exists():
+        lookup = build_ipa_lookup(wiktionary_ipa_cache)
+        if lookup:
+            entries = read_jsonl(v1_jsonl)
+            filled, ipa_stats = apply_lookup(entries, lookup)
+            write_jsonl(filled, v1_jsonl)
+            print(
+                f"[wiktionary-ipa] cache pairs={len(lookup)} "
+                f"filled={ipa_stats['filled']} kept={ipa_stats['kept']} "
+                f"no_match={ipa_stats['no_match']}",
+                file=sys.stderr,
+            )
+            stats.update({f"wiktipa_{k}": v for k, v in ipa_stats.items()})
+
     enriched = read_jsonl(v1_jsonl)
     n_csv = _write_csv(enriched, v1_csv)
     print(f"[csv]   {n_csv} -> {v1_csv}", file=sys.stderr)
-    stats.update({f"enrich_{k}": v for k, v in enrich_stats.items()})
     return stats
 
 
@@ -164,6 +183,16 @@ def _cli() -> int:
     ap.add_argument("--v1", type=Path, default=ANCHOR_PROCESSED / "anchors-v1.jsonl")
     ap.add_argument("--v1-csv", type=Path, default=ANCHOR_PROCESSED / "anchors-v1.csv")
     ap.add_argument("--skip-enrich", action="store_true", help="Skip the Epitran step")
+    ap.add_argument(
+        "--skip-wiktionary-ipa",
+        action="store_true",
+        help="Skip the Wiktionary-form-page IPA fallback",
+    )
+    ap.add_argument(
+        "--wiktionary-ipa-cache",
+        type=Path,
+        default=ANCHOR_RAW / "wiktionary_ipa",
+    )
     args = ap.parse_args()
     run(
         wiki_jsonl=args.wiki,
@@ -171,7 +200,9 @@ def _cli() -> int:
         merged_jsonl=args.merged,
         v1_jsonl=args.v1,
         v1_csv=args.v1_csv,
+        wiktionary_ipa_cache=args.wiktionary_ipa_cache,
         skip_enrich=args.skip_enrich,
+        skip_wiktionary_ipa=args.skip_wiktionary_ipa,
     )
     return 0
 
