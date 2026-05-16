@@ -61,10 +61,22 @@ def fetch_form(form: str, dest_dir: Path = ANCHOR_RAW / "wiktionary_ipa") -> For
         "prop": "text|revid|displaytitle",
         "redirects": "1",
     }
-    with httpx.Client(timeout=60.0, headers={"User-Agent": USER_AGENT}) as cli:
-        resp = cli.get(WIKTIONARY_API, params=params)
-        resp.raise_for_status()
-        body = resp.json()
+    # Retry transient network failures (e.g., flaky DNS in the sandbox).
+    last_err: Exception | None = None
+    for attempt in range(3):
+        try:
+            with httpx.Client(
+                timeout=60.0, headers={"User-Agent": USER_AGENT}
+            ) as cli:
+                resp = cli.get(WIKTIONARY_API, params=params)
+                resp.raise_for_status()
+                body = resp.json()
+            break
+        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+            last_err = e
+            time.sleep(2 ** attempt * 2.0)  # 2s, 4s, 8s
+    else:
+        raise RuntimeError(f"network failure after retries fetching {form!r}") from last_err
 
     slug = _form_slug(form)
     if "error" in body:
