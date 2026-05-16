@@ -26,6 +26,11 @@ slice = [
   "httpx",
   "matplotlib",
 ]
+anchors = [
+  "httpx",
+  "beautifulsoup4",
+  "lxml",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/conlang"]
