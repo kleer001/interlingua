@@ -134,18 +134,49 @@ def _existing_cache(form: str, dest_dir: Path) -> tuple[Path, Path] | None:
     return (h, m) if m.exists() else None
 
 
+def form_variants(form: str) -> list[str]:
+    """Yield Wiktionary lookup variants of a form.
+
+    Multi-word English onomatopoeia is usually entered as one Wiktionary
+    page using hyphens or concatenation (e.g. "cock a doodle doo" lives at
+    cock-a-doodle-doo; "oink oink" usually lives at oink). We fetch all
+    variants so a later lookup can find IPA under whichever form the
+    Wiktionary editors used.
+    """
+    variants = [form]
+    if " " in form:
+        variants.append(form.replace(" ", "-"))
+        # Reduplicated forms ("oink oink", "ha ha") often live under the
+        # singleton page.
+        words = form.split()
+        if len(words) >= 2 and len(set(words)) == 1:
+            variants.append(words[0])
+        variants.append(form.replace(" ", ""))
+    if "-" in form and " " not in form:
+        variants.append(form.replace("-", " "))
+        variants.append(form.replace("-", ""))
+    # Dedup preserving order
+    seen: set[str] = set()
+    out: list[str] = []
+    for v in variants:
+        if v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
+
+
 def select_target_forms(
     anchors_jsonl: Path,
     *,
     max_forms: int | None,
     min_form_length: int = 2,
 ) -> list[tuple[str, int]]:
-    """Pick orthographies to fetch IPA for: rows missing IPA whose language
-    isn't covered by Epitran, ranked by how many AnchorEntry rows would
-    benefit from the lookup.
+    """Pick orthographies (and their hyphen/concat variants) to fetch IPA
+    for: rows missing IPA whose language isn't covered by Epitran, ranked
+    by how many AnchorEntry rows would benefit from the lookup.
     """
     entries = read_jsonl(anchors_jsonl)
-    candidates = Counter()
+    candidates: Counter[str] = Counter()
     for e in entries:
         if e.ipa:
             continue
@@ -156,7 +187,10 @@ def select_target_forms(
         # Prioritize forms whose language Epitran can't transliterate.
         if e.language_code in EPITRAN_CODE_MAP:
             continue
-        candidates[e.orthography] += 1
+        for v in form_variants(e.orthography):
+            if len(v) < min_form_length:
+                continue
+            candidates[v] += 1
     ranked = candidates.most_common()
     if max_forms is not None:
         ranked = ranked[:max_forms]

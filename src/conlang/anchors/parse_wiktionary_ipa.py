@@ -109,6 +109,32 @@ def build_ipa_lookup(
     return lookup
 
 
+def _lookup_with_variants(
+    form: str, lang_code: str, lookup: dict[tuple[str, str], str]
+) -> str | None:
+    """Try the exact (form, lang) key first, then hyphenated/concatenated
+    variants for multi-word forms (so "cock a doodle doo" matches the
+    cock-a-doodle-doo page)."""
+    direct = lookup.get((form, lang_code))
+    if direct:
+        return direct
+    variants: list[str] = []
+    if " " in form:
+        variants.append(form.replace(" ", "-"))
+        words = form.split()
+        if len(words) >= 2 and len(set(words)) == 1:
+            variants.append(words[0])
+        variants.append(form.replace(" ", ""))
+    if "-" in form and " " not in form:
+        variants.append(form.replace("-", " "))
+        variants.append(form.replace("-", ""))
+    for v in variants:
+        hit = lookup.get((v, lang_code))
+        if hit:
+            return hit
+    return None
+
+
 def apply_lookup(
     entries: Iterable,
     lookup: dict[tuple[str, str], str],
@@ -132,7 +158,7 @@ def apply_lookup(
             stats["skipped_no_form"] += 1
             out.append(e)
             continue
-        ipa = lookup.get((e.orthography, e.language_code))
+        ipa = _lookup_with_variants(e.orthography, e.language_code, lookup)
         if not ipa:
             stats["no_match"] += 1
             out.append(e)
