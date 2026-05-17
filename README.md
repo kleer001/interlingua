@@ -98,9 +98,12 @@ receives its phonology by interpolation.
 - Code: `src/conlang/anchors/`
 - Inventory: **10 consonants / 5 vowels + optional /n/ coda** (typological
   fit, every segment is in the vast majority of the world's languages).
-- Current state: 5,338 onomatopoeic words across 84+ languages, all
-  projected to the 10C/5V inventory, sharp-vs-fuzzy cross-linguistic
-  anchors computed.
+- Current state: thousands of onomatopoeic words across 100+ languages
+  across ~100+ canonical concepts, all projected to the 10C/5V inventory,
+  with sharp-vs-fuzzy cross-linguistic anchors computed. See
+  `src/conlang/anchors/showcase.py` and the latest
+  `anchoring/processed/anchors-v*.jsonl` for current counts; the dataset
+  grows as fetchers cover more languages and concepts.
 
 ### Track B — `phonology.py` + `lexicon.py` (deterministic baseline)
 
@@ -133,15 +136,22 @@ Three views of the Bantu-track lexicon, for three audiences:
 | Deliverable                          | Path                                    | Audience          |
 | ------------------------------------ | --------------------------------------- | ----------------- |
 | Single-page lexicon (1000 rows, sortable + filterable) | `docs/static/lexicon.html` | demo / share      |
-| Multi-page MkDocs site (origin + grammar + methodology + lexicon) | build with `mkdocs build`, → `data/processed/site/` | deep dive         |
+| Multi-page MkDocs site (origin + grammar + methodology + lexicon) | `docs-site/` (committed); also deployed via GitHub Pages | deep dive         |
 | Executed walkthrough notebook        | `notebooks/walkthrough.ipynb`, HTML at `docs/static/walkthrough.html` | reproducibility   |
 
-The MkDocs site source lives under `docs/`. To rebuild after changing
-anything in `docs/` or the lexicon:
+The MkDocs site source lives under `docs/`; the built output lives at
+`docs-site/` and is committed so it can be browsed straight from the
+repo. The site is also auto-deployed to GitHub Pages on every push that
+touches `docs/` or `mkdocs.yml` — see
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml).
+Enable Pages once at *Settings → Pages → Source: GitHub Actions* and
+the deployed URL appears in the workflow run output.
+
+To rebuild locally after changing anything in `docs/` or the lexicon:
 
 ```bash
 python -m conlang.site                  # → docs/static/lexicon.html
-mkdocs build                            # → data/processed/site/
+mkdocs build                            # → docs-site/
 python notebooks/build_walkthrough.py   # regenerate notebook source
 jupyter nbconvert --to notebook --execute --inplace notebooks/walkthrough.ipynb
 jupyter nbconvert --to html --output-dir docs/static notebooks/walkthrough.ipynb
