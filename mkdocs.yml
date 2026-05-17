@@ -1,0 +1,24 @@
+site_name: interlingua
+site_description: A bottom-up conlang derived from sparse-autoencoder features of Gemma 2 (2B).
+site_url: ""
+use_directory_urls: false
+
+docs_dir: docs
+site_dir: /media/menser/fauna/interlingua/data/processed/site
+
+nav:
+  - Home: index.md
+  - Origin: origin.md
+  - Grammar: grammar.md
+  - Methodology: methodology.md
+  - Lexicon: lexicon.md
+
+theme:
+  name: readthedocs
+  highlightjs: true
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
