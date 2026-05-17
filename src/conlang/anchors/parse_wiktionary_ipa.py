@@ -128,6 +128,11 @@ def _lookup_with_variants(
     if "-" in form and " " not in form:
         variants.append(form.replace("-", " "))
         variants.append(form.replace("-", ""))
+    if " " not in form and "-" not in form and len(form) >= 4 and len(form) % 2 == 0:
+        half = len(form) // 2
+        if form[:half] == form[half:]:
+            variants.append(f"{form[:half]}-{form[:half]}")
+            variants.append(form[:half])
     for v in variants:
         hit = lookup.get((v, lang_code))
         if hit:

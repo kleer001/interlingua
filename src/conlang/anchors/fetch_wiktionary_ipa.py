@@ -155,6 +155,13 @@ def form_variants(form: str) -> list[str]:
     if "-" in form and " " not in form:
         variants.append(form.replace("-", " "))
         variants.append(form.replace("-", ""))
+    # Doubled-syllable concatenated forms ("haha" = ha+ha, "hoho",
+    # "mumu") often live under the hyphenated or singleton page.
+    if " " not in form and "-" not in form and len(form) >= 4 and len(form) % 2 == 0:
+        half = len(form) // 2
+        if form[:half] == form[half:]:
+            variants.append(f"{form[:half]}-{form[:half]}")
+            variants.append(form[:half])
     # Dedup preserving order
     seen: set[str] = set()
     out: list[str] = []
