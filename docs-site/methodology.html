@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>Methodology - interlingua</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Methodology";
+        var mkdocs_page_input_path = "methodology.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="index.html" class="icon icon-home"> interlingua
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="index.html">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="origin.html">Origin</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="grammar.html">Grammar</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Methodology</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#stage-1-ingest">Stage 1 — Ingest</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#stage-2-dedupe-cluster">Stage 2 — Dedupe + cluster</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#stage-3-edges">Stage 3 — Edges</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#stage-4-decision-gate">Stage 4 — Decision gate</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#stage-5-regularize">Stage 5 — Regularize</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#stage-6-phonology-lexicon-site">Stage 6 — Phonology, lexicon, site</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#reproducibility">Reproducibility</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#supplementary-circuit-tracer-attribution-graphs">Supplementary: circuit-tracer attribution graphs</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#reproducible-walkthrough">Reproducible walkthrough</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="lexicon.html">Lexicon</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">interlingua</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html" class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Methodology</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="methodology">Methodology<a class="headerlink" href="#methodology" title="Permanent link">&para;</a></h1>
+<p>The lexicon was extracted in six stages, each a small CLI in the
+<code>conlang</code> package. Each stage's intermediate output lives under
+<code>data/interim/</code> or <code>data/processed/</code> and can be inspected independently.</p>
+<h2 id="stage-1-ingest">Stage 1 — Ingest<a class="headerlink" href="#stage-1-ingest" title="Permanent link">&para;</a></h2>
+<p><code>python -m conlang.slice</code> (orchestrates Stages 1–4)</p>
+<p>Loads the Gemma Scope SAE
+(<code>gemma-scope-2b-pt-res-canonical / layer_12/width_16k/canonical</code>) and the
+bulk Neuronpedia explanation dump for the matching feature source
+(<code>gemma-2-2b / 12-gemmascope-res-16k</code>, 16,395 explanations). Filters per
+spec §6 (Neuronpedia description exists; non-boilerplate; defined decoder
+direction) and takes the first 1000 that pass. The slice is deterministic
+given the dump.</p>
+<p>Output: <code>data/raw/features.jsonl</code> (1000 <code>{feature_id, label}</code> records) and
+<code>data/raw/decoder_vecs.npy</code> (1000 × 2304, float32).</p>
+<h2 id="stage-2-dedupe-cluster">Stage 2 — Dedupe + cluster<a class="headerlink" href="#stage-2-dedupe-cluster" title="Permanent link">&para;</a></h2>
+<p>Cosine similarity over decoder vectors gives a 1000 × 1000 matrix.
+Distribution: median ≈ 0, 99th percentile ≈ 0.085. Most SAE decoder
+vectors are near-orthogonal — that's the SAE doing its job.</p>
+<p>Dedup is HDBSCAN over the cosine distance matrix
+(<code>min_cluster_size=5</code>). 838 of the 1000 features end up as noise
+singletons; seven multi-member clusters emerge, three of which read as
+coherent semantic groups (discourse markers, news content, physical
+attributes). The HDBSCAN labels feed both the regularization step and
+the phonosemantic CV1 assignment.</p>
+<h2 id="stage-3-edges">Stage 3 — Edges<a class="headerlink" href="#stage-3-edges" title="Permanent link">&para;</a></h2>
+<p>Three edge types were attempted; two ship:</p>
+<ul>
+<li><strong>Cosine edges</strong> (always available, from Stage 2). Threshold for viz:
+  0.10. 1375 edges at this threshold on the 1000-feature slice.</li>
+<li><strong>Co-activation edges</strong> (<code>python -m conlang.run_coactivation
+  --use-flores --n-per-lang 1000</code>). For each pair of slice features,
+  count how often they fire above an activation threshold on the same
+  token. Normalize to PMI. The corpus is FLORES-200 dev across six
+  languages (eng, fra, deu, spa, zho, jpn); ~5,982 sentences, ~189,824
+  tokens through the residual stream of layer 12. 86 edges with PMI ≥ 5
+  on the slice; 28,250 at PMI ≥ 3.</li>
+<li><strong>Function-vector crystal edges</strong> — <em>attempted, dropped.</em> Per Tegmark
+  et al.'s observation that activation differences for labeled pairs
+  encode named transformations, we replicated the parallelogram-crystal
+  result on Gemma 2 2B layer 12 raw hidden states (silhouette 0.53 on 12
+  relations; antonymy separates cleanly as a 13th class). The bridge
+  from those crystals to Gemma Scope SAE decoder vectors failed the §7
+  distinctiveness-margin gate (0% of slice nodes at margin ≥ 0.05 on
+  either the 12- or 13-relation set). Per Commitment 7, the
+  <code>transformation</code> primitive does not exist in the regularized graph;
+  negation is handled compositionally by the morphology instead.</li>
+</ul>
+<h2 id="stage-4-decision-gate">Stage 4 — Decision gate<a class="headerlink" href="#stage-4-decision-gate" title="Permanent link">&para;</a></h2>
+<p>Three load-bearing questions, asked of the slice before continuing:</p>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enough distinct semantic fields (target 500–5000)?</td>
+<td>Yes — ~990 nodes</td>
+</tr>
+<tr>
+<td>Crystals cover ≥ 30% of nodes at margin ≥ 0.05?</td>
+<td>No — 0%</td>
+</tr>
+<tr>
+<td>Co-activation yields parent/sibling structure?</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>Two of three green. The remaining red is exactly the failure mode spec
+§7 anticipated, so the spec's mitigation (compositional negation) is in
+force.</p>
+<h2 id="stage-5-regularize">Stage 5 — Regularize<a class="headerlink" href="#stage-5-regularize" title="Permanent link">&para;</a></h2>
+<p><code>python -m conlang.regularize</code></p>
+<p>Each node is assigned a <code>parent</code> (its highest-PMI co-activation
+neighbor), a <code>siblings</code> list (its other HDBSCAN cluster members), and a
+<code>near</code> list (its top cosine neighbors not already covered). 981 of the
+1000 nodes have a parent after the FLORES-scale co-activation pass; 162
+have at least one sibling. The output is
+<code>data/processed/regularized.json</code> — the input that the lexicon stage
+consumes.</p>
+<p>The schema deliberately has no <code>transformation</code> field. See Commitment 7.</p>
+<h2 id="stage-6-phonology-lexicon-site">Stage 6 — Phonology, lexicon, site<a class="headerlink" href="#stage-6-phonology-lexicon-site" title="Permanent link">&para;</a></h2>
+<p>Three small modules:</p>
+<ul>
+<li><code>conlang.phonology</code> — the inventory + the affix table. Pure data and
+  composition.</li>
+<li><code>conlang.lexicon</code> — keyword class assignment (regex over the
+  Neuronpedia label) + phonosemantic stem generation + applies the class
+  prefix and negation per node. Output:
+  <code>data/processed/lexicon.json</code> (1000 entries).</li>
+<li><code>conlang.site</code> — renders the lexicon to a single self-contained HTML
+  file (<code>data/processed/lexicon.html</code>).</li>
+</ul>
+<p>The keyword class heuristic is intentionally biased toward five active
+singular classes (1 human, 5 natural, 7 tool/process, 9 animal/language,
+11 abstract). The plural classes are unused in this slice because the
+Neuronpedia labels don't carry plural markers in a way that's reliable
+to detect. The resulting class distribution is:</p>
+<pre><code>1=61   5=8   7=220   9=6   11=705
+</code></pre>
+<p>That heavy weight on class 11 is honest: most of what an SAE feature
+<em>is</em> is an abstract concept-detector.</p>
+<h2 id="reproducibility">Reproducibility<a class="headerlink" href="#reproducibility" title="Permanent link">&para;</a></h2>
+<p>The shipped CLIs are deterministic given the same SAE checkpoint and the
+same Neuronpedia dump. The FLORES download is from the FAIR-hosted
+tarball
+(<code>https://dl.fbaipublicfiles.com/nllb/flores200_dataset.tar.gz</code>); the
+older HF <code>facebook/flores</code> dataset relies on a loading script that is no
+longer supported in current <code>datasets</code>. The HF mirror
+<code>Muennighoff/flores200</code> has the same problem.</p>
+<p>To rebuild from scratch:</p>
+<pre><code class="language-bash">source .venv/bin/activate
+python -m conlang.slice \
+    --sae-release gemma-scope-2b-pt-res-canonical \
+    --sae-id layer_12/width_16k/canonical \
+    --neuronpedia-model gemma-2-2b \
+    --neuronpedia-source 12-gemmascope-res-16k \
+    --top-n 1000 --dedup-method hdbscan
+python -m conlang.run_coactivation --use-flores --n-per-lang 1000
+python -m conlang.regularize
+python -m conlang.lexicon
+python -m conlang.site
+</code></pre>
+<p>Times on an RTX-4090-class GPU: stages 1–2 finish in under a minute;
+co-activation on FLORES takes a few minutes; the rest are seconds.</p>
+<h2 id="supplementary-circuit-tracer-attribution-graphs">Supplementary: circuit-tracer attribution graphs<a class="headerlink" href="#supplementary-circuit-tracer-attribution-graphs" title="Permanent link">&para;</a></h2>
+<p>We considered using Anthropic's
+<a href="https://github.com/safety-research/circuit-tracer">circuit-tracer</a> to
+build attribution edges into the Stage 3 multigraph. We did not. The
+reason is that circuit-tracer operates on per-layer MLP <strong>transcoders</strong>
+(<code>mntss/gemma-scope-transcoders</code>), which are a different feature space
+from the residual-stream SAE
+(<code>gemma-scope-2b-pt-res-canonical layer_12/width_16k</code>) that the lexicon
+is built on. Cross-space alignment would require its own §7-style
+distinctiveness gate, and we chose not to take on that research surface
+at this time.</p>
+<p>What we did do is run circuit-tracer on three canonical prompts as
+<strong>parallel supplementary material</strong>: attribution graphs that illustrate
+the kind of structure that exists <em>in</em> Gemma 2 (2B) without claiming
+that structure is identical to what the SAE-based lexicon captures.</p>
+<table>
+<thead>
+<tr>
+<th>Prompt</th>
+<th style="text-align: right;">Nodes</th>
+<th style="text-align: right;">Links</th>
+<th>Download</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>The capital of state containing Dallas is</code></td>
+<td style="text-align: right;">417</td>
+<td style="text-align: right;">6,565</td>
+<td><a href="static/circuit_tracer/dallas-texas.json">dallas-texas.json</a></td>
+</tr>
+<tr>
+<td><code>Two plus two is</code></td>
+<td style="text-align: right;">333</td>
+<td style="text-align: right;">5,906</td>
+<td><a href="static/circuit_tracer/english-math.json">english-math.json</a></td>
+</tr>
+<tr>
+<td><code>Le chat est assis sur le</code></td>
+<td style="text-align: right;">546</td>
+<td style="text-align: right;">17,432</td>
+<td><a href="static/circuit_tracer/french-cat.json">french-cat.json</a></td>
+</tr>
+</tbody>
+</table>
+<p>Each graph is a circuit-tracer attribution graph at <code>node_threshold=0.6</code>,
+<code>edge_threshold=0.85</code>, built on the <code>mntss/gemma-scope-transcoders</code>
+per-layer transcoders. Load them into circuit-tracer's local viewer
+(<code>circuit-tracer serve --data_dir &lt;dir&gt;</code>) or the Neuronpedia
+attribution-graph viewer to interact.</p>
+<p>The driver is <code>external/run_circuit_tracer.py</code>. First run downloads ~3 GB
+of transcoder weights into the HF cache; subsequent runs are seconds plus
+attribution time (~30 s per prompt on a 24 GB GPU).</p>
+<h2 id="reproducible-walkthrough">Reproducible walkthrough<a class="headerlink" href="#reproducible-walkthrough" title="Permanent link">&para;</a></h2>
+<p>→ <a href="static/walkthrough.html">Walkthrough notebook (executed)</a></p>
+<p>A single Jupyter notebook (<code>notebooks/walkthrough.ipynb</code>) loads every
+stage's on-disk artifacts and renders the same summary numbers reported
+here. The HTML export above is a frozen snapshot. To re-execute against
+fresh artifacts:</p>
+<pre><code class="language-bash">source .venv/bin/activate
+jupyter nbconvert --to notebook --execute --inplace notebooks/walkthrough.ipynb
+jupyter nbconvert --to html --output-dir docs/static notebooks/walkthrough.ipynb
+</code></pre>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="grammar.html" class="btn btn-neutral float-left" title="Grammar"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="lexicon.html" class="btn btn-neutral float-right" title="Lexicon">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="grammar.html" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="lexicon.html" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
