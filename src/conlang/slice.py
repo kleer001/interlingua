@@ -41,7 +41,7 @@ from .ingest import (
     load_sae,
     save_node_set,
 )
-from .viz import build_pyvis_graph, write_slice_manifest
+from .viz import RENDERERS, build_graph_data, write_slice_manifest
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -65,12 +65,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--hdbscan-min-samples", type=int, default=None)
     p.add_argument("--edge-threshold", type=float, default=0.10,
                    help="Cosine similarity above which an edge is drawn in the viz.")
+    p.add_argument("--pmi-threshold", type=float, default=5.0,
+                   help="PMI above which a co-activation (orange) edge is drawn. "
+                        "Requires data/interim/coactivation/pmi.npy on disk.")
+    p.add_argument(
+        "--pmi-path",
+        type=Path,
+        default=INTERIM_DIR / "coactivation" / "pmi.npy",
+        help="Path to PMI matrix from run_coactivation. If missing, only cosine "
+             "edges are drawn.",
+    )
     p.add_argument(
         "--bridge-dir",
         type=Path,
         default=PROCESSED_DIR / "crystal_bridge",
         help="If this directory has alignment_lda.npy + coverage.json, "
              "the viz hover will include each node's best-matching crystal.",
+    )
+    p.add_argument(
+        "--viz-backend",
+        choices=sorted(RENDERERS),
+        default="cytoscape",
+        help="Renderer for the slice HTML. cytoscape scales past 1k nodes; "
+             "pyvis is kept for parity but is slow at this size.",
     )
     return p.parse_args(argv)
 
@@ -139,7 +156,7 @@ def run(args: argparse.Namespace) -> Path:
         print(f"        {s:.3f}  {features[a].label[:60]!r}  ↔  {features[b].label[:60]!r}",
               flush=True)
 
-    print("[5/6] Rendering pyvis HTML ...", flush=True)
+    print(f"[5/6] Rendering slice HTML with {args.viz_backend} ...", flush=True)
     features_meta = [
         {"feature_id": f.feature_id, "label": f.label} for f in features
     ]
@@ -171,14 +188,31 @@ def run(args: argparse.Namespace) -> Path:
         print(f"      crystal overlay: {len(relations)} relations, "
               f"distinctiveness margin median={float(np.median(margin)):.4f}", flush=True)
 
-    html_path = build_pyvis_graph(
+    pmi_for_viz = None
+    if args.pmi_path.is_file():
+        pmi_for_viz = np.load(args.pmi_path)
+        if pmi_for_viz.shape != sim.shape:
+            print(
+                f"      warning: PMI shape {pmi_for_viz.shape} != sim shape "
+                f"{sim.shape}; skipping co-activation edges",
+                flush=True,
+            )
+            pmi_for_viz = None
+        else:
+            print(f"      PMI overlay loaded from {args.pmi_path}", flush=True)
+
+    graph_data = build_graph_data(
         features_meta=features_meta,
         sim=sim,
         clusters=clusters,
         edge_threshold=args.edge_threshold,
         hdbscan_labels=hdbscan_labels_for_viz,
         crystal_overlay=crystal_overlay,
+        pmi=pmi_for_viz,
+        pmi_threshold=args.pmi_threshold,
     )
+    renderer = RENDERERS[args.viz_backend]
+    html_path = renderer(graph_data, PROCESSED_DIR / "slice.html")
     print(f"      wrote {html_path}", flush=True)
 
     print("[6/6] Manifest ...", flush=True)
