@@ -104,6 +104,50 @@ def merge_streams(
     return list(seen.values()), stats
 
 
+def synthesize_english_anchors(
+    entries: list[AnchorEntry],
+) -> tuple[list[AnchorEntry], int]:
+    """For each canonical concept that lacks an English row, synthesize one
+    from the inventory's first ``english_seed``. Wikipedia's wide table only
+    covers ~50 concepts, so most of the 114-concept inventory (water sounds,
+    weather, impacts, mechanical, exclamations) had no English entry until
+    this step. Provenance: ``source = "inventory-english-seed"``.
+
+    IPA and projection are filled later by the Wiktionary-form-page lookup
+    and the projection step.
+    """
+    from .concepts import CONCEPTS
+
+    have_en = {e.concept for e in entries if e.language_code == "en" and e.orthography}
+    today = entries[0].captured_at if entries else "2026-05-16"
+    added = 0
+    for c in CONCEPTS:
+        if c.slug in have_en:
+            continue
+        if not c.english_seeds:
+            continue
+        seed = c.english_seeds[0]
+        entries.append(
+            AnchorEntry(
+                concept=c.slug,
+                category=c.category,
+                language="English",
+                language_code="en",
+                orthography=seed,
+                romanization=None,
+                ipa=None,
+                source="inventory-english-seed",
+                source_url="",
+                source_revid=None,
+                captured_at=today,
+                notes=None,
+                extra={"seed_origin": "concepts.english_seeds[0]"},
+            )
+        )
+        added += 1
+    return entries, added
+
+
 def _write_csv(entries: list[AnchorEntry], path: Path) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     cols = list(CSV_COLUMNS) + ["source_concept", "seed", "ipa_source"]
@@ -143,6 +187,14 @@ def run(
     else:
         print(f"[warn] missing {wikt_jsonl}", file=sys.stderr)
     merged, stats = merge_streams(streams)
+
+    # Synthesize an English row from the inventory's first english_seed for
+    # any canonical concept lacking one. Wikipedia's wide table doesn't
+    # cover every concept we now track, so without this step the matrix
+    # has English-shaped holes for water sounds, weather, impacts, etc.
+    merged, n_synth = synthesize_english_anchors(merged)
+    stats["synthesized_english"] = n_synth
+
     n_merged = write_jsonl(merged, merged_jsonl)
     print(f"[merge] {n_merged} -> {merged_jsonl}", file=sys.stderr)
     for k, v in stats.items():
