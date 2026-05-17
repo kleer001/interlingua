@@ -17,7 +17,7 @@ runs into the hundreds of GB. SSD strongly preferred.
 
 ---
 
-## Three paths, in order of cost
+## Three paths plus a wildcard, in order of cost
 
 1. **Audit** the existing 1000-node lexicon for function-concept features
    that survived §6 but got miscategorized as class-11 abstracts.
@@ -25,9 +25,12 @@ runs into the hundreds of GB. SSD strongly preferred.
    (residual-stream direction-finding → SAE projection).
 3. **Re-extract** from attention-out SAEs (Gemma Scope ships them), which
    tend to surface syntactic / positional structure better than residual SAEs.
+4. **Platypus path** — unsupervised discovery of glue-shaped features
+   without naming the target. Finds operators we don't have a name for.
 
 Path 1 is an afternoon. Path 2 is the main event. Path 3 is optional, gated
-on whether (1) and (2) leave gaps.
+on whether (1) and (2) leave gaps. Path 4 is the exploratory wildcard —
+expensive but the only path that admits genuine discovery.
 
 All three are independent and can run in parallel if hardware permits — see
 the parallelism notes at the end of each path.
@@ -540,6 +543,281 @@ with Path 2's Stage B if you have spare VRAM.
 
 ---
 
+## Path 4 — Unsupervised glue discovery (the platypus path)
+
+> A platypus is a mammal that lays eggs. It exists outside the
+> taxonomy that was supposed to be exhaustive. Path 4 looks for the
+> grammatical equivalent: directions in the model's activation space
+> that *behave like* operators but don't map to anything we'd have
+> thought to probe for.
+
+Paths 1–3 are confirmatory. Each one starts from a target the project
+team (or the linguistic typology literature, or the Ithkuil community)
+already named, and asks "does the model encode this." Path 4 inverts
+the question: "what is the model encoding that *acts like* glue,
+regardless of whether we have a name for it?"
+
+The methodological pivot is identifying glue by **behavioral signature**
+rather than by labeled target. A feature is glue-shaped if it:
+
+- fires across many semantic clusters (promiscuous),
+- is topic-independent (same feature in cooking texts, physics texts,
+  dialogue),
+- is positionally / structurally cued rather than topically cued (fires at
+  boundaries, after specific structural positions, regardless of content),
+- and — most importantly — **causes systematic transformations of
+  output** when steered, not changes of topic.
+
+The last criterion is the gold standard. Tense markers, negation,
+politeness, definiteness all share it: when you manipulate them, content
+stays but *form* shifts. Steering by topical features changes the
+subject; steering by operator features changes the grammar around the
+subject. That's the platypus test.
+
+### Stage 1 — Glue-signature filter
+
+For every SAE feature (all ~16k, not just the 1000 in the lexicon —
+this path looks at the whole space, including features that were
+filtered out by §6):
+
+1. **Cluster entropy.** For each feature, take its top-N activating
+   contexts. Embed each context, cluster (HDBSCAN or k-means).
+   `cluster_entropy = Shannon entropy of the cluster distribution`.
+   High entropy = promiscuous = candidate glue.
+
+2. **Topic invariance.** Pool the contexts of each feature into a
+   "topic distribution" using off-the-shelf topic-model embedding.
+   `topic_invariance = 1 - max_topic_mass`. Features whose activations
+   spread across topics evenly score high.
+
+3. **Positional / boundary score.** For each activation, record
+   within-sentence position (normalized 0–1) and whether it's at a
+   clause / phrase / discourse boundary (use a parser — stanza is
+   fine). Aggregate:
+   - `position_concentration`: variance of within-sentence position
+     (low = positionally locked).
+   - `boundary_fraction`: fraction of activations at structural
+     boundaries (high = boundary-active).
+
+4. **Token-vs-structure ratio.** For each activation, score how
+   predictable the activation is from the surrounding *token identity*
+   vs the surrounding *POS / dependency structure*. Train two small
+   probes — one on token n-grams, one on POS / dep features — and
+   compare their accuracy in predicting whether the feature fires.
+   Operators predict better from structure than from token identity.
+
+A **glue candidate** is a feature in the top quartile on
+`cluster_entropy` AND top quartile on `topic_invariance` AND
+(top quartile on `position_concentration` OR top quartile on
+`boundary_fraction` OR `structure_probe_accuracy >
+token_probe_accuracy`).
+
+This identifies the set without naming what they encode. Expect a few
+hundred candidates from a 16k-width SAE; the wider the SAE, the more
+candidates, the more platypi.
+
+### Stage 2 — Steering characterization
+
+For each glue candidate, the question is: when you push this feature
+around, what changes in the model's output?
+
+Procedure per candidate:
+
+1. Sample ~100 diverse prompts (mix of topics, registers, lengths) —
+   reuse the FLORES-200 + LLM-generated prompts from Path 2.
+2. For each prompt: generate the completion under three conditions:
+   - **Baseline**: no intervention.
+   - **Clamp ON**: set the feature's activation to high (e.g., 5× the
+     99th percentile of its natural distribution) throughout the
+     completion.
+   - **Clamp OFF**: zero the feature's activation throughout.
+3. Capture all three completions per prompt.
+4. Compute the **steering signature** of the feature:
+   - **Token-level shift**: which tokens change in probability between
+     ON and OFF? Aggregate across prompts. Filter to grammatical /
+     functional tokens (modals, particles, conjunctions, tense
+     morphology, polarity, pronouns) vs content tokens. The ratio
+     functional:content is the **grammaticality of the operator**.
+   - **Structural shift**: parse all three completions, compare clause
+     type / mood / valency distributions ON vs OFF.
+   - **Embedding shift**: where does the completion embedding move?
+     Magnitude of the shift = strength of the operator; direction
+     should be consistent across prompts (if it's a real operator) or
+     random (if it's noise).
+   - **Consistency**: across the 100 prompts, how consistent is the
+     transformation? Operators transform systematically; spurious
+     features don't.
+
+A candidate is **promoted to platypus** if:
+- functional:content shift ratio ≥ some threshold (start: 2.0),
+- structural distribution shifts in a consistent direction across
+  prompts,
+- embedding-shift direction has high cross-prompt cosine similarity
+  (≥ 0.5).
+
+Otherwise it gets demoted — it's a content feature that happened to look
+promiscuous, or it's noise.
+
+### Stage 3 — Cluster the platypi
+
+The candidates that survive Stage 2 are operators, but each is a single
+feature, not a category. To find *kinds of operators*, cluster them by
+their steering signature:
+
+1. Encode each platypus's signature as a vector: functional token shift
+   profile + structural shift profile + embedding shift direction.
+2. Cluster (HDBSCAN; the project already uses it).
+3. Each cluster is a **candidate operator category**.
+
+Two platypi in the same cluster transform output in similar ways —
+they're likely two facets of the same underlying operator. A platypus
+that's alone in its cluster is either a singleton operator or noise that
+made it through Stage 2; flag for manual inspection.
+
+### Stage 4 — Naming
+
+For each cluster:
+
+1. Pull the top-activating contexts of all member features.
+2. Pull the steering effect summaries (what tokens shifted, what
+   structures changed).
+3. Pull the SAE auto-interp labels of member features (if any survived
+   §6) — sometimes Neuronpedia already had a hint we ignored.
+4. Hand-write (or LLM-assist) a working name. The name should describe
+   the *transformation*, not the content: "boundary marker that promotes
+   the following clause to topic position" not "topic-related feature."
+
+If a cluster's effect doesn't fit any name you can come up with,
+**preserve that**. Give it a placeholder code (`PLATYPUS-007`) and
+write up the empirical signature without forcing it into a known
+category. That's the genuinely-novel-discovery case and it should be
+loud in the writeup.
+
+### Stage 5 — Typology cross-check (Burke-and-Wills note)
+
+Burke and Wills crossed the continent without learning from people who
+already knew the route. The analogous failure mode here: discover a
+"new" operator that's actually well-documented in WALS / SSWL /
+Glottolog and we just hadn't named it because our roster was incomplete.
+
+For each platypus cluster, *before* committing to "this is novel":
+
+1. Pull the steering signature (token shifts + structural shifts).
+2. Search WALS feature descriptions (192 features, covering most of
+   typology) for close matches. WALS is downloadable as a JSON dump.
+3. Search the existing Path 2 supervised directions — project the
+   platypus's mean signature onto each known-category direction. High
+   alignment = we re-discovered something we already named in Path 2,
+   re-tag accordingly.
+4. If no match in WALS and no match in Path 2: **this is the
+   deliverable.** Keep the placeholder name, write up the empirical
+   signature, document the search you did so the writeup can defend the
+   "we looked, it isn't this" claim.
+
+The genuinely-novel set is small by construction (most platypi will
+turn out to be poorly-named known categories), and that's fine — even
+zero genuine platypi is a finding about the shape of the model's
+operator space.
+
+### Output
+
+- `data/interim/glue_candidates.json` — Stage 1 output. Schema:
+  `{feature_id, cluster_entropy, topic_invariance, position_concentration,
+  boundary_fraction, structure_vs_token_accuracy_gap, score}`.
+- `data/interim/steering_signatures/{feature_id}.json` — Stage 2 output
+  per candidate.
+- `data/processed/platypi.json` — final output:
+  ```json
+  {
+    "schema_version": 1,
+    "source": "path-4-unsupervised",
+    "clusters": [
+      {
+        "cluster_id": 7,
+        "placeholder_name": "PLATYPUS-007",
+        "working_name": "...",
+        "member_feature_ids": [...],
+        "steering_signature_summary": "...",
+        "wals_search_result": "no match" | "matches WALS feature 81 (...)",
+        "path2_alignment": "no match" | "near 'evidentiality / inferential' (cos=0.72)",
+        "novelty_status": "novel | re-discovery | known-category"
+      }
+    ]
+  }
+  ```
+
+### Parallelism
+
+This is the heaviest path — generation cost dominates.
+
+- **Stage 1** (signatures): single pass per feature using cached
+  activations from Path 2 Stage B. Embarrassingly parallel across
+  features. ~16k features at ~1s each = a few hours single-threaded;
+  minutes on a multi-process pool. Disk-bound, not GPU-bound.
+- **Stage 2** (steering): this is the expensive bit. 200–500 candidates
+  × (ON / OFF / baseline) × 100 prompts × generation cost. Mitigations:
+  - Cap candidates at top-500 by Stage 1 score before steering.
+  - Short completions (50 tokens).
+  - Aggressive batching — Gemma 2 9B with bf16 + a 24 GB GPU can run
+    batches of 32 short completions at decent speed; 80 GB GPU handles
+    128+.
+  - Parallelize across candidates if you have multiple GPUs — each
+    candidate's steering set is independent.
+  - Estimated cost on a 4-GPU rig: ~12–24 hours for 500 candidates ×
+    300 completions. Run overnight.
+- **Stage 3** (cluster): single CPU job. Trivial.
+- **Stage 4** (naming): human-in-the-loop, not parallelized. LLM-assist
+  via a notebook with a small UI that shows top-activating contexts +
+  steering examples side-by-side for each cluster.
+- **Stage 5** (WALS / Path 2 cross-check): single CPU job. WALS as JSON
+  is small (~10 MB). Path 2 alignment is a matmul.
+
+### Done criteria
+
+- ≥ 50 candidate features survive Stage 1's glue-signature filter
+  (sanity check on the filter; if many fewer, the thresholds are too
+  strict).
+- ≥ 20 of those promote to platypi at Stage 2 (have systematic
+  grammatical steering effects).
+- ≥ 5 distinct clusters at Stage 3.
+- ≥ 1 cluster survives Stage 5 as "no match in WALS, no match in
+  Path 2." That's a linguistic platypus.
+
+Zero genuine platypi is still a publishable result: "Gemma 2's operator
+space, after unsupervised search and typology cross-check, decomposes
+into known grammatical categories" — that's a strong claim about
+model–language alignment and worth saying out loud.
+
+### Risks specific to Path 4
+
+- **Stage 1's filter is itself a hypothesis.** "Glue looks like
+  X / Y / Z" — if the model encodes operators in a *different* shape than
+  promiscuous + topic-invariant + structural, Path 4 misses them.
+  Mitigation: log the features that *almost* passed and inspect a sample
+  for "this looks operator-y but didn't make our cut" — iterate the
+  filter thresholds in a second pass.
+- **Steering is fragile.** A feature that doesn't have a clean effect
+  on output may still be a real operator that's downstream-suppressed
+  by some other circuit. Mitigation: try steering at multiple
+  coefficients (1×, 5×, 20×) and at multiple layers (Gemma 2 has 26;
+  steer the same feature at L12 *and* L18 — sometimes the effect is
+  cleaner one or the other). Don't rule a feature out on a single
+  steering attempt.
+- **Naming is the bottleneck.** With 5+ clusters and 20+ platypi,
+  writing names that don't smuggle in pre-existing categories is hard.
+  Mitigation: the notebook UI for Stage 4 should show the empirical
+  signature first and human-suggested names second; the order matters
+  for not biasing the namer.
+- **"Novel" is unfalsifiable in some directions.** If a platypus
+  separates contexts that no human has ever named the distinction
+  between, we can't prove it's not just noise that happens to be
+  consistent. Mitigation: require cross-model agreement (the same
+  platypus signature must show up when the procedure is run on both
+  Gemma 2 2B and 9B). A platypus that's only in one model is suspect;
+  one that's in both is real.
+
+---
+
 ## Phonotactics for the function sub-lexicon
 
 The Bantu-shaped `(C)V` constraint and ≥ 2-syllable word minimum were
@@ -646,8 +924,16 @@ Update `docs/grammar.md`:
 2. Minimal-pair generation (Path 2 Stage A). Runs in the background
    while you read Path 1's output.
 3. Activation cache sweep (Path 2 Stage B). Overnight job for 9B at full
-   corpus.
+   corpus. **This cache also powers Path 4 Stage 1**, so don't delete it.
 4. Direction extraction + projection (Path 2 Stages C–E). One day.
-5. Inspect outputs, decide whether Path 3 is needed.
-6. Phonotactics update + site build.
-7. Origin-story / methodology writeup. Last, after the artifact stabilizes.
+5. Path 4 Stage 1 (glue-signature filter). Reuses the cache from step 3.
+   A few hours of CPU.
+6. Inspect Path 2 outputs, decide whether Path 3 is needed.
+7. Path 4 Stages 2–5 (steering, clustering, naming, WALS cross-check).
+   Overnight for steering, then a day for human-in-the-loop naming. Run
+   *after* Path 2 finishes so the WALS / Path-2 alignment check has
+   targets to compare against.
+8. Phonotactics update + site build.
+9. Origin-story / methodology writeup. Last, after the artifact stabilizes.
+   The writeup needs to surface Path 4's findings prominently — that's
+   where "the language inside a translation" earns its strongest claim.
