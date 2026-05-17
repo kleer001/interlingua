@@ -75,23 +75,39 @@ FALLBACK_CORPUS = [
 ]
 
 
+FLORES_LANGUAGES = ["eng_Latn", "fra_Latn", "deu_Latn", "spa_Latn", "zho_Hans", "jpn_Jpan"]
+FLORES_ROOT = RAW_DIR / "flores200_dataset"
+
+
 def load_corpus(use_flores: bool, n_per_lang: int) -> list[str]:
-    """Try FLORES, fall back to the curated inline corpus."""
+    """Load corpus. `--use-flores` reads the FAIR FLORES-200 tarball from RAW_DIR.
+
+    Without --use-flores: returns the curated 30-sentence FALLBACK_CORPUS.
+    With --use-flores: requires the tarball to be extracted at
+    data/raw/flores200_dataset/ (download from
+    https://dl.fbaipublicfiles.com/nllb/flores200_dataset.tar.gz). Fails loudly
+    if missing — no silent fallback, since the whole point of the flag is to
+    scale beyond the curated corpus.
+    """
     if not use_flores:
         return FALLBACK_CORPUS
-    try:
-        from datasets import load_dataset
-
-        languages = ["eng_Latn", "fra_Latn", "deu_Latn", "spa_Latn", "zho_Hans", "jpn_Jpan"]
-        out: list[str] = []
-        for lang in languages:
-            ds = load_dataset("facebook/flores", lang, split="dev", trust_remote_code=True)
-            texts = ds["sentence"][:n_per_lang]
-            out.extend(texts)
-        return out
-    except Exception as e:
-        print(f"  FLORES load failed ({type(e).__name__}: {e}); using fallback corpus", flush=True)
-        return FALLBACK_CORPUS
+    dev_dir = FLORES_ROOT / "dev"
+    if not dev_dir.is_dir():
+        raise FileNotFoundError(
+            f"FLORES-200 not found at {dev_dir}. Run:\n"
+            f"  curl -sL -o {RAW_DIR}/flores200_dataset.tar.gz "
+            f"https://dl.fbaipublicfiles.com/nllb/flores200_dataset.tar.gz\n"
+            f"  tar -xzf {RAW_DIR}/flores200_dataset.tar.gz -C {RAW_DIR}/"
+        )
+    out: list[str] = []
+    for lang in FLORES_LANGUAGES:
+        path = dev_dir / f"{lang}.dev"
+        if not path.is_file():
+            raise FileNotFoundError(f"FLORES file missing: {path}")
+        lines = [line.strip() for line in path.read_text(encoding="utf-8").splitlines()]
+        texts = [line for line in lines if line][:n_per_lang]
+        out.extend(texts)
+    return out
 
 
 def load_slice_feature_ids() -> list[int]:
