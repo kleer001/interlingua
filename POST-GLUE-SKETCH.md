@@ -184,8 +184,7 @@ b) **A direction surfaces in raw space, projects *sparsely* onto SAE
 ### 3.5 Parallelism
 
 - **PCA / ICA**: incremental algorithms exist; can stream over
-  activation cache without loading it all. CPU-bound on a 256-core
-  box, ~hours.
+  activation cache without loading it all. CPU-bound.
 - **Dictionary learning**: per-layer parallelism; each layer can run
   on a separate GPU.
 - **Causal direction discovery**: most expensive; parallelize across
@@ -520,7 +519,7 @@ output dictates which paths earn their compute.
 
 - **Compute cost balloons fast.** Path 6 alone could 10x the glue
   survey's compute. Mitigation: each path has a cap (number of
-  candidates to validate, hours of GPU). If the cap is hit before
+  candidates to validate, GPU budget). If the cap is hit before
   done criteria are met, that's the result — don't extend.
 
 - **Findings become unfalsifiable.** "We found a dynamic operator

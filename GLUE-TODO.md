@@ -17,12 +17,6 @@ runs into the hundreds of GB. SSD strongly preferred.
 
 ---
 
-
-All three are independent and can run in parallel if hardware permits — see
-the parallelism notes at the end of each path.
-
----
-
 ## Three paths plus two wildcards, in order of cost
 
 1. **Audit** the existing 1000-node lexicon for function-concept features
@@ -37,7 +31,7 @@ the parallelism notes at the end of each path.
    *compounds* of features. Atomic-feature search misses them by
    construction.
 
-Path 1 is an afternoon. Path 2 is the main event. Path 3 is optional, gated
+Path 1 is the cheapest. Path 2 is the main event. Path 3 is optional, gated
 on whether (1) and (2) leave gaps. Path 4 is the exploratory wildcard for
 atomic operators. Path 5 is the wildcard for non-atomic ones — runs after
 Path 4 because it reuses its infrastructure and pruning relies on Path 4's
@@ -328,24 +322,10 @@ don't.
 
 ### Tier-aware execution
 
-The tier doesn't change the probing method but it does change expectations
-and ordering:
-
-- **Tier 1** probes should mostly succeed (high-confidence target);
-  failures here mean methodology bug, not absence.
-- **Tier 2** is where the project earns its keep — these are real
-  cross-linguistic distinctions, multilingual minimal pairs are honest,
-  and any one of them surfacing cleanly is a payoff that hand-rolling
-  could never claim.
-- **Tier 3** is exploratory. Expect low hit rate. Each hit is a paper-worthy
-  result on its own.
-- **Tier 4** should mostly succeed but on later layers than Tier 1
-  (discourse / pragmatic features tend to peak deeper).
-- **Tier 5** is a sanity check and writeup material — knowing the LLM
-  language privileges things human languages don't is itself the point.
-
-Run tiers in this order so Tier 1's clean wins validate the pipeline
-before you trust Tier 3's findings.
+Run tiers in numerical order so Tier 1 validates the pipeline before
+later tiers are trusted. Tier 4 (discourse / pragmatic) tends to peak
+at later layers than Tier 1 — bias layer choice accordingly. Tier 3
+is exploratory; expect a low hit rate.
 
 ---
 
@@ -514,19 +494,18 @@ This is the meat of the parallelism budget. Layers of independence:
 
 Sketch of execution plan, assuming a 4-GPU rig:
 
-1. **Stage A (1 GPU each, 4 categories at a time, ~4 hours per model on
-   1k pairs/category × 20 categories)**: minimal-pair generation. Run on
-   CPU + LLM API in the background while you set up Stage B.
-2. **Stage B (all GPUs, 1 model at a time)**: full activation cache
+1. **Stage A** (1 GPU each, 4 categories at a time): minimal-pair
+   generation. Run on CPU + LLM API in the background while you set up
+   Stage B.
+2. **Stage B** (all GPUs, 1 model at a time): full activation cache
    sweep. Hook layers {6,12,20} for 2B, then swap to 9B and hook
-   {12,20,31}. Write shards to disk. ~2 hours for 2B, ~6–8 hours for
-   9B at 10M tokens.
-3. **Stage C (parallel, CPU-bound)**: direction extraction + validation
+   {12,20,31}. Write shards to disk.
+3. **Stage C** (parallel, CPU-bound): direction extraction + validation
    for every (model, layer, category) cell. ~150 cells; trivial to
-   parallelize, each cell is a few minutes.
-4. **Stage D (parallel, GPU-light)**: SAE projections. Load each
+   parallelize.
+4. **Stage D** (parallel, GPU-light): SAE projections. Load each
    relevant SAE once, project all directions through it.
-5. **Stage E (single process)**: aggregate, classify (sparse/diffuse),
+5. **Stage E** (single process): aggregate, classify (sparse/diffuse),
    emit `function_lexicon_probed.json`.
 
 Use `joblib` or `concurrent.futures.ProcessPoolExecutor` — the project
@@ -556,12 +535,6 @@ Across all tiers:
   lexicon entries.
 - ≥ 10 categories classified as **diffuse/affix** → grammatical
   operators.
-
-Anything less is a finding too — write it up. "We probed for X, the
-model didn't encode it cleanly" is honest and on-brand. The negative
-results in Tier 3 in particular are valuable: they tell you something
-about the shape of the model's grammatical space that no successful
-result can.
 
 ---
 
@@ -606,14 +579,8 @@ with Path 2's Stage B if you have spare VRAM.
 > that *behave like* operators but don't map to anything we'd have
 > thought to probe for.
 
-Paths 1–3 are confirmatory. Each one starts from a target the project
-team (or the linguistic typology literature, or the Ithkuil community)
-already named, and asks "does the model encode this." Path 4 inverts
-the question: "what is the model encoding that *acts like* glue,
-regardless of whether we have a name for it?"
-
-The methodological pivot is identifying glue by **behavioral signature**
-rather than by labeled target. A feature is glue-shaped if it:
+Identify glue by **behavioral signature** rather than by labeled target.
+A feature is glue-shaped if it:
 
 - fires across many semantic clusters (promiscuous),
 - is topic-independent (same feature in cooking texts, physics texts,
@@ -623,11 +590,9 @@ rather than by labeled target. A feature is glue-shaped if it:
 - and — most importantly — **causes systematic transformations of
   output** when steered, not changes of topic.
 
-The last criterion is the gold standard. Tense markers, negation,
-politeness, definiteness all share it: when you manipulate them, content
-stays but *form* shifts. Steering by topical features changes the
-subject; steering by operator features changes the grammar around the
-subject. That's the platypus test.
+The last criterion is the gold standard: steering by topical features
+changes the subject; steering by operator features changes the grammar
+around the subject.
 
 ### Stage 1 — Glue-signature filter
 
@@ -807,8 +772,7 @@ This is the heaviest path — generation cost dominates.
 
 - **Stage 1** (signatures): single pass per feature using cached
   activations from Path 2 Stage B. Embarrassingly parallel across
-  features. ~16k features at ~1s each = a few hours single-threaded;
-  minutes on a multi-process pool. Disk-bound, not GPU-bound.
+  features. Disk-bound, not GPU-bound.
 - **Stage 2** (steering): this is the expensive bit. 200–500 candidates
   × (ON / OFF / baseline) × 100 prompts × generation cost. Mitigations:
   - Cap candidates at top-500 by Stage 1 score before steering.
@@ -818,8 +782,6 @@ This is the heaviest path — generation cost dominates.
     128+.
   - Parallelize across candidates if you have multiple GPUs — each
     candidate's steering set is independent.
-  - Estimated cost on a 4-GPU rig: ~12–24 hours for 500 candidates ×
-    300 completions. Run overnight.
 - **Stage 3** (cluster): single CPU job. Trivial.
 - **Stage 4** (naming): human-in-the-loop, not parallelized. LLM-assist
   via a notebook with a small UI that shows top-activating contexts +
@@ -837,11 +799,6 @@ This is the heaviest path — generation cost dominates.
 - ≥ 5 distinct clusters at Stage 3.
 - ≥ 1 cluster survives Stage 5 as "no match in WALS, no match in
   Path 2." That's a linguistic platypus.
-
-Zero genuine platypi is still a publishable result: "Gemma 2's operator
-space, after unsupervised search and typology cross-check, decomposes
-into known grammatical categories" — that's a strong claim about
-model–language alignment and worth saying out loud.
 
 ### Risks specific to Path 4
 
@@ -881,19 +838,12 @@ model–language alignment and worth saying out loud.
 > activity has a clean operator effect that neither member produces
 > alone.
 
-Path 4 promotes a feature to a platypus only if *clamping that feature
-alone* produces systematic grammatical change. A feature that's inert
-solo but functions in compound gets dropped at Path 4 Stage 2. That's
-the gap.
-
-Lichens matter because the model probably uses them. A lot of mech-interp
-work (Anthropic's circuits, the Bricken et al. monosemantic features
-work, attribution graphs) suggests that operator behavior is often
-distributed across small clusters of features that fire together but
-don't act in isolation. Negation, in some models, decomposes into a
-"polarity feature" + "scope feature" pair where neither alone flips
-output polarity but the conjunction does. We won't know which categories
-are lichen-shaped in Gemma 2 until we look.
+A lot of mech-interp work (Anthropic's circuits, the Bricken et al.
+monosemantic features work, attribution graphs) suggests that operator
+behavior is often distributed across small clusters of features that
+fire together but don't act in isolation. Negation, in some models,
+decomposes into a "polarity feature" + "scope feature" pair where
+neither alone flips output polarity but the conjunction does.
 
 ### What counts as a lichen
 
@@ -1023,7 +973,7 @@ statistic, no steering). Test for operator behavior by steering the top
 context-stabilizers or topic-bridges. If they don't, they're
 multi-purpose intermediate computations and not glue.
 
-This is a 1-day scan; don't build a path around it. Just run it and
+This is a quick scan; don't build a path around it. Just run it and
 note the top features in `data/interim/mycorrhizal_candidates.json`.
 Promote any with clean steering to the Path 4 platypus list.
 
@@ -1064,8 +1014,6 @@ Promote any with clean steering to the Path 4 platypus list.
 - **Stage 3**: steering per pair, 4 conditions × 100 prompts. This is
   4x more generation than Path 4's per-feature steering. Run it after
   Path 4 finishes so GPU contention is sequential, not parallel.
-  Estimated cost on a 4-GPU rig for 500 lichen candidates: 1–2 nights
-  of steering.
 - **Stage 4–5**: same as Path 4. CPU and human-in-the-loop.
 
 ### Done criteria
@@ -1077,10 +1025,6 @@ Promote any with clean steering to the Path 4 platypus list.
 - ≥ 2 distinct lichen clusters at Stage 4.
 - ≥ 1 cluster survives Stage 5 as "no match to Path 4 platypi, no
   match to WALS, distinct from any lexicon entry."
-
-Zero genuine novel lichens is again a finding: "Gemma 2's operator
-behavior decomposes into atomic features and known compositional
-categories." Strong claim. Worth saying out loud.
 
 ### Risks specific to Path 5
 
@@ -1173,13 +1117,6 @@ Update `docs/grammar.md`:
 
 ## Risk register (additions to spec.md §7)
 
-- **Probe directions may not be sparse in any width.** Mitigation: the
-  sparsity gate is the call. Diffuse directions are still useful — they
-  become affixes, not lexicon entries.
-- **Minimal-pair generation may leak content.** A naive "I walk / I
-  walked" template might encode `walk`-the-content alongside tense.
-  Mitigation: average across many lexical contexts; the direction-finding
-  method already cancels content if the slot fill is diverse enough.
 - **Category list is no longer English-shaped, but the discovery method
   still is.** The roster spans typological + Ithkuil + LLM-native, but
   someone had to write it, and that someone (and the LLM that helped)
@@ -1208,30 +1145,25 @@ Update `docs/grammar.md`:
 
 ## Suggested order of execution
 
-1. Path 1 audit. 1 afternoon. Decision point: how much glue is already
-   sitting in the lexicon?
-2. Minimal-pair generation (Path 2 Stage A). Runs in the background
+1. Path 1 audit. Decision point: how much glue is already sitting in
+   the lexicon?
+2. Minimal-pair generation (Path 2 Stage A). Run in the background
    while you read Path 1's output.
-3. Activation cache sweep (Path 2 Stage B). Overnight job for 9B at full
-   corpus. **This cache also powers Path 4 Stage 1**, so don't delete it.
-4. Direction extraction + projection (Path 2 Stages C–E). One day.
+3. Activation cache sweep (Path 2 Stage B). **This cache also powers
+   Path 4 Stage 1**, so don't delete it.
+4. Direction extraction + projection (Path 2 Stages C–E).
 5. Path 4 Stage 1 (glue-signature filter). Reuses the cache from step 3.
-   A few hours of CPU.
 6. Inspect Path 2 outputs, decide whether Path 3 is needed.
 7. Path 4 Stages 2–5 (steering, clustering, naming, WALS cross-check).
-   Overnight for steering, then a day for human-in-the-loop naming. Run
-   *after* Path 2 finishes so the WALS / Path-2 alignment check has
+   Run *after* Path 2 finishes so the WALS / Path-2 alignment check has
    targets to compare against.
 8. Path 5 Stages 1–2 (lichen candidates + synergy). Reuses the
-   coactivation graph and Path 4's glue candidates. A day of CPU.
-9. Mycorrhizal-hub scan. Half a day; parallel to (8).
+   coactivation graph and Path 4's glue candidates.
+9. Mycorrhizal-hub scan. Can run parallel to (8).
 10. Path 5 Stage 3 (joint steering). Run after Path 4's steering
-    finishes — same GPUs. 1–2 nights.
-11. Path 5 Stages 4–5 (cluster, name, cross-check). A day.
+    finishes — same GPUs.
+11. Path 5 Stages 4–5 (cluster, name, cross-check).
 12. Phonotactics update + site build.
-13. Origin-story / methodology writeup. Last, after the artifact stabilizes.
-    The writeup needs to surface Path 4 and Path 5 findings prominently
-    — that's where "the language inside a translation" earns its
-    strongest claim. The unit-of-analysis caveat goes in the
-    methodology section verbatim; honesty about scope is the difference
-    between a fun conlang and a defensible artifact.
+13. Origin-story / methodology writeup. Last, after the artifact
+    stabilizes. Surface Path 4 and Path 5 findings prominently. Include
+    the unit-of-analysis caveat verbatim in the methodology section.
