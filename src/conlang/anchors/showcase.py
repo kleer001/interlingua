@@ -96,8 +96,12 @@ def _featured_block(
     a few language examples."""
     inv = BY_SLUG.get(slug)
     description = inv.description if inv else slug.replace("_", " ")
-    rows_with_ipa = [e for e in entries if e.ipa and e.projected_form]
-    # Pick one example per language, preferring high-traffic languages first.
+    # Include ALL entries with an orthography (English compound forms like
+    # "cock-a-doodle-doo" don't always have IPA — projection columns just
+    # stay empty for them).
+    candidates = [e for e in entries if e.orthography]
+    # Pick one example per language, preferring high-traffic languages first
+    # AND preferring entries that have IPA when alternatives exist.
     priority = [
         "en",
         "ja",
@@ -121,9 +125,12 @@ def _featured_block(
         "he",
     ]
     by_lang: dict[str, AnchorEntry] = {}
-    for e in rows_with_ipa:
+    for e in candidates:
         code = e.language_code or ""
-        if code and code not in by_lang:
+        if not code:
+            continue
+        existing = by_lang.get(code)
+        if existing is None or (not existing.ipa and e.ipa):
             by_lang[code] = e
     ordered = [by_lang[c] for c in priority if c in by_lang]
     other = [e for c, e in by_lang.items() if c not in priority]
