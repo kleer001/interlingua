@@ -96,13 +96,22 @@ the projection as phonological resemblance.
 
 Staged so we can stop, evaluate, and ship at each cut.
 
-### Phase 0 — Freeze the substrate
+### Phase 0 — Freeze the substrate, pick N
 
 Pre-work. No user-visible change.
 
+- **Set N = 2000 for v1.** The current pipeline took the first 1000
+  filter-passing features (via `slice.py --top-n 1000`). Bumping to
+  2000 is a one-line CLI change and nearly doubles vocabulary coverage
+  at near-zero compute cost — the dominant cost in the pipeline is the
+  co-activation forward pass over FLORES, which is bounded by corpus
+  size, not N. See §"N is a knob, not a constant" below for the
+  upper-bound conditions and the curve.
 - Snapshot SAE feature vectors and the HDBSCAN cluster outputs into
   `data/processed/substrate-v1.parquet`. Every later phase reads from
-  this; nothing reads from a live extraction.
+  this; nothing reads from a live extraction. Filename embeds N
+  (`substrate-v1-n2000.parquet`) so a future scale-up doesn't silently
+  clobber.
 - Snapshot the anchor pool's per-concept modal projections and
   feature-space embeddings into `data/processed/anchors-v1.parquet`.
 - Tag the current `docs/static/lexicon.html` as `lexicon-pre-cutover`
@@ -113,7 +122,43 @@ Pre-work. No user-visible change.
   validate without it.
 
 Acceptance: substrate + anchors parquet files exist, `phonological_distance`
-has tests, fossil lexicon committed.
+has tests, fossil lexicon committed, N=2000 chosen and recorded in the
+substrate filename and in `grammar.md` §"Phonosemantic stems".
+
+### N is a knob, not a constant
+
+The bottleneck is the co-activation forward pass over the corpus, and
+that's roughly flat in N. Almost everything else (ingest, HDBSCAN, PMI
+matrix construction, interpolation, validation) is either O(N) or
+O(N²) on small constants. Wall-clock cost from 1k → 10k changes by
+minutes, not hours. The real cost curve is in *lexicon utility*, not
+compute, and it has four knees:
+
+- **1k → 2k:** nearly free, doubles coverage. The v1 target.
+- **2k → 5k:** auto-interp explanation quality starts to fray in the
+  tail (lower-confidence Neuronpedia labels). Phonotactic pressure
+  rises: 16C × 5V = 80 distinct CVs, so unique 2-syllable openings cap
+  at 6400. Anchor density per feature drops below 1 anchor per 20
+  features. Conditional on growing `concepts.py` from ~100 to ~150
+  anchors before the bump.
+- **5k → 10k:** same compute, but the cracks widen. Average stem length
+  has to go from 3 syllables to 4 to avoid collisions. Most features
+  get *relational* stems (located via natural-neighbor mixing among
+  other unanchored features) rather than *iconically grounded* ones
+  (located near actual onomatopoeia anchors). This defeats the point
+  of the pure expensive pass.
+- **> 10k:** requires switching the SAE itself from `width_16k` to
+  `width_32k` / `width_65k`. Out of scope for this cutover.
+
+**Floor on anchor density.** Empirical rule from the four knees above:
+keep ≥ 1 anchor per 20 features, i.e. `len(concepts.py) ≥ N / 20`.
+With ~100 anchors today, the comfortable ceiling is N ≈ 2000. The 5k
+and 10k tiers are gated on growing the anchor pool first, in that
+order. Don't bump N past 2000 until `concepts.py` grows.
+
+The interpolation code in Phase 1 should be N-agnostic — passing
+substrate parquet in, getting stems out, with no hardcoded 1000 or
+2000 anywhere.
 
 ### Phase 1 — Interpolation infrastructure
 
@@ -237,6 +282,22 @@ enough that it's worth naming what does NOT move:
   abstract concept) but visually weird. Document this as a feature,
   not a bug. The "cunning → sibilant" walkthrough in
   `anchor-pool-sketch.md` already commits to this stance.
+- **Anchor-density tradeoff.** This is the dual of anchor sparsity for
+  abstracts, and the one that gates the N knob in Phase 0. With ~100
+  anchors in `concepts.py` and N=2000 features, the ratio is 1 anchor
+  per 20 features — enough for natural-neighbor interpolation to
+  ground most stems in *some* iconic signal. As N grows the ratio
+  collapses, and beyond ~1:20 most features end up being interpolated
+  among other unanchored features (relational stems) rather than
+  among anchors (iconic stems). The cutover loses its point when most
+  stems are relational. Concrete consequence for the project plan:
+  growing `concepts.py` is *prerequisite work* for scaling N past
+  2000, not optional polish. Add ~50 anchors before pushing to 5k,
+  ~200 more before 10k. Animal sounds are mostly tapped; the next
+  tiers are weather, human-body sounds, mechanical/material sounds,
+  and ideophones from ideophone-rich languages (Japanese, Korean,
+  Bantu). `anchor-pool-sketch.md` §"Open questions" already flags
+  non-animal anchors as the natural next expansion.
 - **Mixing metric mismatch.** SAE cosine and panphon Euclidean are
   different metric kinds (angular vs L2). Sibson weights are
   scale-equivariant in the semantic space but the projection back to
