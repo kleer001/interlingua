@@ -66,18 +66,23 @@ What we miss by these commitments:
 
 - **Directions in raw residual-stream that no SAE-feature combination
   reconstructs sparsely.** Path 2's supervised probing finds these for
-  named targets; nothing in Paths 1–5 finds them unsupervised. A truly
-  open Path 6 would do unsupervised direction-discovery in raw activation
-  space, decoupled from any SAE. That's a research project of its own
-  scale; flagged in "Open questions" rather than planned here.
+  named targets; nothing in Paths 1–5 finds them unsupervised. The
+  truly open Path 6 would do unsupervised direction-discovery in raw
+  activation space, decoupled from any SAE. See `POST-GLUE-SKETCH.md`
+  §3 — that's the agenda for after the glue survey lands.
 - **Large circuits.** If an operator is a 7-feature computational graph,
   no method in this doc finds it. Anthropic's circuit-tracer (already in
-  `spec.md §4 Stage 3`) is the right tool; this doc doesn't yet wire it
-  in for glue discovery. Candidate addition for later.
+  `spec.md §4 Stage 3`) is the right tool; `POST-GLUE-SKETCH.md` §5
+  sketches how it gets wired into glue discovery.
 - **Distributed / no-locus operators.** Some grammatical behavior in
   modern models lives in attention patterns, not in residual-stream
   features. Path 3 (attention-out SAEs) catches the SAE-decomposable
-  subset of this; the rest is out of scope.
+  subset of this; `POST-GLUE-SKETCH.md` §6 covers the rest (attention
+  patterns themselves as operators).
+
+The post-glue sketch also covers subspace / nonlinear operators (§4),
+context-conditioned operators (§7), and cross-layer trajectories (§8) —
+all of which are outside the scope of the present document by design.
 
 The point of naming these explicitly: when the writeup says "Gemma 2
 encodes evidentiality" or "Gemma 2 does not encode mirativity," the
