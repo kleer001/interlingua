@@ -17,7 +17,13 @@ runs into the hundreds of GB. SSD strongly preferred.
 
 ---
 
-## Three paths plus a wildcard, in order of cost
+
+All three are independent and can run in parallel if hardware permits — see
+the parallelism notes at the end of each path.
+
+---
+
+## Three paths plus two wildcards, in order of cost
 
 1. **Audit** the existing 1000-node lexicon for function-concept features
    that survived §6 but got miscategorized as class-11 abstracts.
@@ -27,13 +33,57 @@ runs into the hundreds of GB. SSD strongly preferred.
    tend to surface syntactic / positional structure better than residual SAEs.
 4. **Platypus path** — unsupervised discovery of glue-shaped features
    without naming the target. Finds operators we don't have a name for.
+5. **Lichen path** — discovery of operators that only function as
+   *compounds* of features. Atomic-feature search misses them by
+   construction.
 
 Path 1 is an afternoon. Path 2 is the main event. Path 3 is optional, gated
-on whether (1) and (2) leave gaps. Path 4 is the exploratory wildcard —
-expensive but the only path that admits genuine discovery.
+on whether (1) and (2) leave gaps. Path 4 is the exploratory wildcard for
+atomic operators. Path 5 is the wildcard for non-atomic ones — runs after
+Path 4 because it reuses its infrastructure and pruning relies on Path 4's
+candidates.
 
-All three are independent and can run in parallel if hardware permits — see
-the parallelism notes at the end of each path.
+---
+
+## Unit-of-analysis caveat (read before all paths)
+
+Every path in this document commits to **SAE features as the unit of
+analysis**. That's a choice, not a fact about the model. The model doesn't
+compute on SAE features; it computes on residual-stream activations. SAEs
+are a learned post-hoc decomposition, and they're decent at capturing some
+phenomena (atomic content concepts) and worse at others (smeared
+operators, compositional structure, polysemantic remainders).
+
+Three levels of commitment are implicit in Paths 1–5:
+
+| Commitment                              | Where it bites                                                                                                         |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| SAEs are the right basis                | A direction the SAE doesn't reconstruct sparsely (Path 2's "diffuse" outcome) gets bucketed as an affix, not missed entirely. So this commitment is partially relaxed already. |
+| Operators are individual units          | Path 4 assumes a single feature has the operator behavior. Path 5 (below) relaxes this to *pairs and triples*.        |
+| Compositional units don't exceed ~3     | Path 5 caps composition order at 3 for tractability. A "4-feature lichen" is searchable in principle but not in this plan. |
+
+What we miss by these commitments:
+
+- **Directions in raw residual-stream that no SAE-feature combination
+  reconstructs sparsely.** Path 2's supervised probing finds these for
+  named targets; nothing in Paths 1–5 finds them unsupervised. A truly
+  open Path 6 would do unsupervised direction-discovery in raw activation
+  space, decoupled from any SAE. That's a research project of its own
+  scale; flagged in "Open questions" rather than planned here.
+- **Large circuits.** If an operator is a 7-feature computational graph,
+  no method in this doc finds it. Anthropic's circuit-tracer (already in
+  `spec.md §4 Stage 3`) is the right tool; this doc doesn't yet wire it
+  in for glue discovery. Candidate addition for later.
+- **Distributed / no-locus operators.** Some grammatical behavior in
+  modern models lives in attention patterns, not in residual-stream
+  features. Path 3 (attention-out SAEs) catches the SAE-decomposable
+  subset of this; the rest is out of scope.
+
+The point of naming these explicitly: when the writeup says "Gemma 2
+encodes evidentiality" or "Gemma 2 does not encode mirativity," the
+claim is "at the level of SAE features and 2-feature compounds, with
+the procedures described." Not at every possible level. That caveat
+isn't a hedge — it's the honest scope.
 
 ---
 
@@ -818,6 +868,240 @@ model–language alignment and worth saying out loud.
 
 ---
 
+## Path 5 — Compositional operator discovery (the lichen path)
+
+> A lichen is two species in one functional unit — the fungus and the
+> alga are inert apart, viable together. Path 5 looks for the
+> grammatical analog: pairs (or triples) of SAE features whose joint
+> activity has a clean operator effect that neither member produces
+> alone.
+
+Path 4 promotes a feature to a platypus only if *clamping that feature
+alone* produces systematic grammatical change. A feature that's inert
+solo but functions in compound gets dropped at Path 4 Stage 2. That's
+the gap.
+
+Lichens matter because the model probably uses them. A lot of mech-interp
+work (Anthropic's circuits, the Bricken et al. monosemantic features
+work, attribution graphs) suggests that operator behavior is often
+distributed across small clusters of features that fire together but
+don't act in isolation. Negation, in some models, decomposes into a
+"polarity feature" + "scope feature" pair where neither alone flips
+output polarity but the conjunction does. We won't know which categories
+are lichen-shaped in Gemma 2 until we look.
+
+### What counts as a lichen
+
+A feature pair (i, j) is lichen-shaped if all three hold:
+
+1. **Co-activation**: i and j fire together more than independent
+   chance predicts. (Cheap filter.)
+2. **Synergy**: the *interaction* `a_i · a_j` is a significant
+   predictor of some grammatical metric (next-token polarity / tense /
+   register shift, choice of complementizer, etc.) *after controlling
+   for `a_i` and `a_j` alone*. Knowing both gives more than knowing
+   either.
+3. **Joint steering > solo steering**: clamping both features together
+   produces a systematic grammatical transformation that neither
+   solo-clamp produces. This is the gold standard — it mirrors Path 4
+   Stage 2, just on pairs.
+
+A pair that passes (1) + (2) is a *candidate*. A pair that also passes
+(3) is a *lichen*.
+
+### Stage 1 — Candidate pair pruning
+
+16k × 16k = 256M pairs. Cannot steer them all. Three filters cascade:
+
+1. **Co-activation graph membership.** Reuse `data/interim/coactivation.npz`
+   from spec §4 Stage 3. Take all edges (pairs with PMI above some
+   threshold — start with the threshold the existing pipeline uses for
+   sibling assignment). Drops 256M → maybe 1M.
+2. **Glue-context restriction.** A lichen operator should fire in
+   glue-shaped contexts. Restrict to pairs where at least one member is
+   a Path 4 Stage 1 glue candidate, OR where the co-firing event itself
+   has a glue signature (high cluster entropy in the contexts where both
+   fire). Drops 1M → maybe 100k.
+3. **Synergy regression pre-screen.** For each surviving pair, fit a
+   tiny logistic regression on a small sample of held-out text:
+   `P(grammatical_event_X) ~ a_i + a_j + a_i·a_j` for several
+   grammatical events of interest (polarity flip in next clause,
+   tense shift, mood shift, register shift). Keep pairs where the
+   interaction coefficient is significant for at least one event after
+   controlling for both main effects. Drops 100k → maybe 1k–5k.
+
+### Stage 2 — Synergy / interaction test (full)
+
+For each candidate pair from Stage 1, do the full synergy measurement:
+
+1. Sample ~10k tokens. Record `(a_i, a_j, next-token distribution)` for
+   each.
+2. Fit two models: a baseline with main effects only, and a full model
+   with the interaction term.
+3. Measure information gain of the full model over the baseline
+   (likelihood ratio or BIC delta).
+4. Compute **partial-information decomposition** if you want to be
+   precise: split the joint information `(a_i, a_j) → output` into
+   unique-i, unique-j, redundant, synergistic components. A lichen has
+   high *synergistic* mass relative to unique-i and unique-j.
+
+Pairs with low synergy drop out. Expect to cut 1k–5k → 200–500
+high-synergy pairs.
+
+### Stage 3 — Joint steering
+
+For each high-synergy pair, the same steering protocol as Path 4
+Stage 2, but with four conditions instead of three:
+
+- **Baseline**: no intervention.
+- **Clamp i alone** (j at natural).
+- **Clamp j alone** (i at natural).
+- **Clamp both** at the joint coordinates suggested by Stage 2 (e.g.,
+  the (a_i, a_j) values that maximize the synergistic effect).
+
+Score each condition on the same metrics as Path 4 Stage 2 (functional
+token shift, structural shift, embedding shift). A **lichen** is a pair
+where the *joint-clamp* condition produces a transformation signature
+that's:
+
+- Significantly stronger than either solo-clamp condition.
+- Not predicted by linear sum of the solo-clamp signatures (the joint
+  effect is qualitatively different, not just bigger).
+- Consistent across the ~100 prompts.
+
+Pairs that fail any of those become *false lichens* — interesting on
+their own (they're synergistic in prediction but not in causation) and
+worth logging, but they don't promote.
+
+### Stage 4 — Cluster and name
+
+Same as Path 4 Stages 3–4 but on lichen pairs instead of atomic
+platypi. The clustering vector is the lichen's joint-steering
+signature. Each cluster is a candidate *compound operator category*.
+
+Naming caveat: when writing the working name, describe the
+*compound's* effect, not either member's. The whole point of a lichen
+is that the description belongs to the unit, not to either species.
+
+### Stage 5 — Cross-check vs Path 4, WALS, and the lexicon
+
+Before claiming novelty:
+
+1. **Vs Path 4 platypi**: does any lichen's joint-steering signature
+   align with an atomic platypus signature? If so, this lichen is a
+   compositional re-implementation of an operator the model also encodes
+   atomically. Note it; don't double-count.
+2. **Vs WALS**: same procedure as Path 4 Stage 5.
+3. **Vs the existing lexicon**: occasionally a Path-1 lexicon entry's
+   member features turn out to be lichen partners. That's a *finding
+   about the lexicon* — it means the supervised entry has compositional
+   internal structure.
+
+### Triples and higher (deferred)
+
+The same procedure extends to triples (a_i · a_j · a_k) and beyond.
+Triples are tractable if the pair search yields a small set of
+"lichen-prone" features — restrict triple search to combinations of
+known lichen members. Pure cubic search (16k choose 3 ≈ 700B) is not
+tractable; the gate is "at least two members already participate in
+known lichens." Defer until pairs are mapped.
+
+### Quick gesture — mycorrhizal hubs
+
+Tangent to the lichen path, worth a parallel scan: **graph-centrality
+features**. Features with high betweenness centrality in the
+co-activation graph mediate between many semantic clusters without
+being content themselves — the underground fungal network that lets
+trees of different species share resources. Cheap to find (single graph
+statistic, no steering). Test for operator behavior by steering the top
+20. If they steer cleanly, they're operators of a different sort:
+context-stabilizers or topic-bridges. If they don't, they're
+multi-purpose intermediate computations and not glue.
+
+This is a 1-day scan; don't build a path around it. Just run it and
+note the top features in `data/interim/mycorrhizal_candidates.json`.
+Promote any with clean steering to the Path 4 platypus list.
+
+### Output
+
+- `data/interim/lichen_candidates.json` — Stage 1 + 2 output. Schema:
+  `{pair: [i, j], coactivation_pmi, synergy_score, synergy_event,
+  interaction_coef, p_value}`.
+- `data/interim/lichen_steering/{i}_{j}.json` — Stage 3 per-pair
+  steering signatures.
+- `data/processed/lichens.json` — final output:
+  ```json
+  {
+    "schema_version": 1,
+    "source": "path-5-compositional",
+    "clusters": [
+      {
+        "cluster_id": 3,
+        "placeholder_name": "LICHEN-003",
+        "working_name": "...",
+        "member_pairs": [[123, 456], [123, 789], ...],
+        "steering_signature_summary": "...",
+        "path4_alignment": "no match" | "...",
+        "wals_search_result": "no match" | "...",
+        "novelty_status": "novel | re-discovery-of-platypus | known-category"
+      }
+    ]
+  }
+  ```
+
+### Parallelism
+
+- **Stage 1**: graph filter is single-CPU on the existing coactivation
+  data. Synergy pre-screen is per-pair; embarrassingly parallel across
+  pairs.
+- **Stage 2**: synergy regression per surviving pair; per-pair
+  parallel.
+- **Stage 3**: steering per pair, 4 conditions × 100 prompts. This is
+  4x more generation than Path 4's per-feature steering. Run it after
+  Path 4 finishes so GPU contention is sequential, not parallel.
+  Estimated cost on a 4-GPU rig for 500 lichen candidates: 1–2 nights
+  of steering.
+- **Stage 4–5**: same as Path 4. CPU and human-in-the-loop.
+
+### Done criteria
+
+- ≥ 5k pairs survive Stage 1.
+- ≥ 100 pairs pass the synergy threshold at Stage 2.
+- ≥ 10 of those are confirmed lichens at Stage 3 (joint > solo,
+  cross-prompt consistent).
+- ≥ 2 distinct lichen clusters at Stage 4.
+- ≥ 1 cluster survives Stage 5 as "no match to Path 4 platypi, no
+  match to WALS, distinct from any lexicon entry."
+
+Zero genuine novel lichens is again a finding: "Gemma 2's operator
+behavior decomposes into atomic features and known compositional
+categories." Strong claim. Worth saying out loud.
+
+### Risks specific to Path 5
+
+- **Synergy is detectable but not steerable.** A pair may show strong
+  joint statistical structure (Stage 2) without joint steering producing
+  a clean effect (Stage 3). Could mean the model uses the synergy
+  read-only — for internal computation, not as an output operator.
+  That's interesting; log separately.
+- **Pruning may miss lichens.** Two features could be lichen partners
+  while not being co-activation graph neighbors (PMI threshold filters
+  them out). Mitigation: do one cheap full-sweep round at very low PMI
+  on a random ~10% sample; check whether any high-synergy pairs were
+  below the threshold. If many, raise the threshold concern.
+- **Pair-level naming is harder.** Atomic platypi at least have
+  top-activating contexts to anchor naming. Lichens have *joint*
+  contexts, which are sparser by construction. Mitigation: the Stage 4
+  notebook should show contexts where both members co-fire above their
+  individual 95th percentiles, not just where either fires.
+- **Triples are real and out of scope.** If many operators are
+  3-feature compounds, Path 5's pair-only search will mis-attribute or
+  miss them. Mitigation: log the triples we're skipping by listing
+  3-member co-activation triangles among lichen members; revisit in a
+  v2.
+
+---
+
 ## Phonotactics for the function sub-lexicon
 
 The Bantu-shaped `(C)V` constraint and ≥ 2-syllable word minimum were
@@ -933,7 +1217,16 @@ Update `docs/grammar.md`:
    Overnight for steering, then a day for human-in-the-loop naming. Run
    *after* Path 2 finishes so the WALS / Path-2 alignment check has
    targets to compare against.
-8. Phonotactics update + site build.
-9. Origin-story / methodology writeup. Last, after the artifact stabilizes.
-   The writeup needs to surface Path 4's findings prominently — that's
-   where "the language inside a translation" earns its strongest claim.
+8. Path 5 Stages 1–2 (lichen candidates + synergy). Reuses the
+   coactivation graph and Path 4's glue candidates. A day of CPU.
+9. Mycorrhizal-hub scan. Half a day; parallel to (8).
+10. Path 5 Stage 3 (joint steering). Run after Path 4's steering
+    finishes — same GPUs. 1–2 nights.
+11. Path 5 Stages 4–5 (cluster, name, cross-check). A day.
+12. Phonotactics update + site build.
+13. Origin-story / methodology writeup. Last, after the artifact stabilizes.
+    The writeup needs to surface Path 4 and Path 5 findings prominently
+    — that's where "the language inside a translation" earns its
+    strongest claim. The unit-of-analysis caveat goes in the
+    methodology section verbatim; honesty about scope is the difference
+    between a fun conlang and a defensible artifact.
