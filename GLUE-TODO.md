@@ -47,7 +47,12 @@ the parallelism notes at the end of each path.
 ### Steps
 
 1. **Build a vocabulary of grammatical-concept indicator phrases.** One
-   pattern per category. Starting set (regex; tune after first pass):
+   pattern per category. Starting set below — this is the **English-shaped
+   baseline** for the quick audit. The fuller typological / Ithkuil-style
+   roster lives in the "Category roster" section after Path 1; Path 2
+   probes the full roster. The audit's regex over Neuronpedia labels has
+   highest precision on categories whose auto-interp descriptions are
+   well-attested in English prose, which biases toward this baseline.
 
    | Category               | Indicator regex (case-insensitive)                                                                                |
    | ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -140,6 +145,152 @@ glue mostly isn't in the current 1000-node slice; lean on Path 2.
 
 ---
 
+## Category roster — beyond English-shaped
+
+Path 1's regex is English-vocabulary biased. Path 2 isn't, so its category
+list shouldn't be either. The roster below is what Path 2 probes; it spans
+five tiers from familiar to deliberately weird. Going wide here is the
+point — the project's premise is that the model has a language-agnostic
+concept space, and the right question isn't "does the LLM encode English
+grammar" but "which of the world's grammatical distinctions, and which
+distinctions no human language makes, does the LLM cleanly encode."
+
+For every category: a probe that comes back with a validated direction is
+a finding; a probe that doesn't is *also* a finding. "We looked for
+mirativity and the model didn't separate surprise from new information"
+is a real result and earns a line in the writeup.
+
+### Tier 1 — English-shaped baseline (20 categories, see Path 1 table)
+
+Negation, plural, past, future, progressive, perfect, 1st/2nd person,
+definiteness, possession, spatial deixis, temporal deixis, additive /
+contrastive / causal conjunction, interrogation, comparative, necessity,
+possibility, discourse marker. Already in Path 1's table.
+
+### Tier 2 — Typologically common, English-weak
+
+These are well-attested in the world's languages but English marks them
+poorly or not at all. Minimal-pair source defaults to **multilingual**
+unless an English paraphrase contrast is clean.
+
+| Category                         | Sketch                                                                         | Pair source             |
+| -------------------------------- | ------------------------------------------------------------------------------ | ----------------------- |
+| evidentiality / direct           | "I saw it" vs "I'm told" — direct witness contrast                             | English + multilingual  |
+| evidentiality / hearsay          | reported speech, second-hand information                                       | English + multilingual  |
+| evidentiality / inferential      | "must have rained" — inference from evidence                                   | English paraphrase      |
+| mirativity                       | new / surprising information; speaker's just-learned-it stance                 | English paraphrase      |
+| clusivity                        | inclusive vs exclusive 1pl ("we [with you]" vs "we [not you]")                 | multilingual (Tagalog…) |
+| dual number                      | exactly two, distinct from plural                                              | multilingual (Slovene…) |
+| paucal number                    | a few, distinct from plural                                                    | multilingual (Arabic…)  |
+| addressee honorific              | formality toward listener (T/V, keigo addressee axis)                          | multilingual + register |
+| referent honorific               | exalting the subject of speech (Japanese sonkeigo)                             | multilingual            |
+| humble / self-lowering           | humbling the speaker (Japanese kenjōgo)                                        | multilingual            |
+| volitionality                    | controlled vs uncontrolled action ("I fell" — on purpose? not?)                | English paraphrase      |
+| telicity                         | bounded vs unbounded event ("ran" vs "ran a mile")                             | English templates       |
+| pluractionality                  | verbal plural — action repeated / by many agents                               | English paraphrase      |
+| tense remoteness                 | immediate / yesterday / distant past distinctions                              | multilingual (Bantu)    |
+| egophoricity                     | privileged self-knowledge ("I know I'm tired" vs "she's tired")                | multilingual (Tibetan)  |
+| cislocative / translocative      | toward speaker vs away from speaker (motion frame)                             | English paraphrase      |
+| logophoricity                    | "she said she₍same₎ left" vs "she said she₍other₎ left"                        | English disambig.       |
+| switch-reference                 | next clause same-subject vs different-subject                                  | English paraphrase      |
+| obviation                        | proximate vs obviative 3rd person ("he₁" vs "the other he")                    | English disambig.       |
+| animacy hierarchy                | animate vs inanimate referent in argument position                             | English templates       |
+| inverse marking                  | when a low-animacy agent acts on a high-animacy patient                        | English templates       |
+| ergative alignment cue           | intransitive subject patterns with patient, not agent                          | multilingual (Basque)   |
+| alienable vs inalienable poss.   | "my hand" (body part) vs "my book" (acquired thing)                            | English templates       |
+| numeral classifier — shape       | long / flat / round / sheet classifier semantics                               | multilingual (Mandarin) |
+| numeral classifier — animacy     | human vs animal vs inanimate count                                             | multilingual (Japanese) |
+| reflexive / reciprocal           | "they saw themselves" vs "they saw each other" vs "they saw them"              | English templates       |
+| causative                        | productive causation: "X dies" → "Y makes X die"                               | English templates       |
+| applicative                      | productive valency add: beneficiary / instrumental promoted to object          | multilingual (Bantu)    |
+| topic vs subject                 | what we're talking *about* vs syntactic subject (Japanese wa vs ga)            | multilingual            |
+| focus marker                     | what's new / contrastive ("it's the CAT that…")                                | English clefts          |
+| middle voice                     | neither active nor passive (Greek-style middle)                                | English paraphrase      |
+| antipassive                      | transitive subject preserved, patient demoted                                  | multilingual            |
+
+### Tier 3 — Ithkuil-style abstract distinctions
+
+Categories whose closest natural-language home is one or two outlier
+languages, or that exist only in conlangs. Probing these is the highest-risk
+part of the plan — the LLM may not have a clean direction for any of them.
+That's interesting either way.
+
+| Category                | Sketch                                                                         | Pair source         |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------- |
+| configuration           | single entity / set of similars / set of dissimilars / undifferentiated mass   | LLM-generated       |
+| affiliation             | coincidental / associative / variative / cooperative arrangement of a set      | LLM-generated       |
+| extension               | event touches a point / delimited region / whole referent                      | LLM-generated       |
+| perspective             | monadic event / unbounded / generic-truth / abstract-conceptual                | LLM-generated       |
+| phase                   | discrete / fluctuative / frequentative / fragmentative iterativity             | LLM-generated       |
+| sanction (Ithkuil)      | speaker's force: assertive / presumptive / allegative / refutative             | LLM paraphrase      |
+| validation (Ithkuil)    | basis for claim: observational / inferential / intuitive / reportative         | overlaps evidential |
+| bias                    | speaker's emotional stance: skeptical / expectant / mocking / resigned         | LLM paraphrase      |
+| illocution              | declarative / interrogative / directive / hortative / admonitive               | English templates   |
+| stativity vs eventivity | describes a state vs describes a change                                        | English templates   |
+| boundedness / countness | count vs mass distinction at the referent level                                | English templates   |
+
+### Tier 4 — Discourse / pragmatic
+
+Categories the model almost certainly encodes (these are *everywhere* in
+training data) but that mostly aren't morphologized in IE languages.
+
+| Category                  | Sketch                                                          | Pair source          |
+| ------------------------- | --------------------------------------------------------------- | -------------------- |
+| sentence-final softening  | yo / ne / ba / ma equivalents — Japanese, Mandarin              | multilingual         |
+| confirmation-seeking      | "right?" / "tag question" / Japanese ne                         | English templates    |
+| hedging gradient          | "definitely" → "probably" → "maybe" → "perhaps not"             | English templates    |
+| politeness / face         | deferential / neutral / blunt / rude                            | LLM-generated        |
+| empathy alignment         | whose POV the narration takes (Japanese giving/receiving verbs) | multilingual         |
+| genre register            | formal-written / informal-spoken / technical / poetic           | corpus contrast      |
+| narrative perspective     | first-person narrator / third limited / third omniscient        | corpus contrast      |
+| direct vs indirect speech | "she said 'I'm tired'" vs "she said she was tired"              | English templates    |
+| presupposition trigger    | "stopped X-ing" presupposes prior X-ing                         | English templates    |
+| metalinguistic mention    | "the word X" vs use of X                                        | English templates    |
+
+### Tier 5 — LLM-native / no clear linguistic home
+
+Distinctions the LLM is known or strongly suspected to encode that don't
+map to any one language's grammar. Some of these (sentiment, refusal) are
+already documented in published mech-interp work; including them here is
+honest about what an LLM "language" might prioritize that human languages
+don't.
+
+| Category               | Sketch                                                          | Pair source         |
+| ---------------------- | --------------------------------------------------------------- | ------------------- |
+| sentiment polarity     | positive / negative valence — well-attested SAE feature         | corpus + templates  |
+| affect intensity       | calm / agitated / extreme regardless of polarity                | LLM-generated       |
+| formality register     | known SAE feature in many models                                | corpus contrast     |
+| factuality cue         | confident-fact vs speculation vs known-falsehood                | LLM-generated       |
+| refusal / safety       | known SAE feature in instruction-tuned models                   | LLM-generated       |
+| code-switching marker  | mid-utterance language shift                                    | multilingual corpus |
+| self-reference (model) | "as an AI" / model-as-narrator features                         | corpus contrast     |
+| instruction vs content | imperative-to-model vs content-to-process                       | LLM-generated       |
+| length / verbosity     | concise vs expansive register cue                               | corpus contrast     |
+| reasoning-chain marker | step-by-step / let's-think-about-this scaffolding               | corpus contrast     |
+
+### Tier-aware execution
+
+The tier doesn't change the probing method but it does change expectations
+and ordering:
+
+- **Tier 1** probes should mostly succeed (high-confidence target);
+  failures here mean methodology bug, not absence.
+- **Tier 2** is where the project earns its keep — these are real
+  cross-linguistic distinctions, multilingual minimal pairs are honest,
+  and any one of them surfacing cleanly is a payoff that hand-rolling
+  could never claim.
+- **Tier 3** is exploratory. Expect low hit rate. Each hit is a paper-worthy
+  result on its own.
+- **Tier 4** should mostly succeed but on later layers than Tier 1
+  (discourse / pragmatic features tend to peak deeper).
+- **Tier 5** is a sanity check and writeup material — knowing the LLM
+  language privileges things human languages don't is itself the point.
+
+Run tiers in this order so Tier 1's clean wins validate the pipeline
+before you trust Tier 3's findings.
+
+---
+
 ## Path 2 — Probe for grammatical primitives
 
 This is the v0.2 §5 transformation plan revived with a stronger method.
@@ -151,22 +302,54 @@ sparsity. Sparse → it's a feature (lexical glue). Diffuse → it's a direction
 
 ### Minimal-pair categories
 
-Same categories as Path 1's regex table, plus anything that path surfaced
-weakly. For each category, generate ≥ 1000 minimal pairs.
+The full roster — Tiers 1 through 5 in the "Category roster" section
+above. ~80 categories. For each, generate ≥ 1000 minimal pairs from
+whichever generation strategies fit (see roster's "Pair source" column).
 
-**Generation strategies (run all three, dedupe):**
+**Generation strategies (run all four, dedupe):**
 
 1. **Template + slot-fill.** Templates like `I {verb}` vs `I {verb}-ed`,
    with slots filled from a WordNet-derived word list. Cheap, controlled.
+   Works for Tier 1 + parts of Tier 2.
 2. **FLORES-200 derived.** You already pull FLORES for co-activation
    (`src/conlang/edges/coactivation.py`). For each English sentence, run
-   a stanza/spaCy parse and synthesize the minimal-pair edit
-   (e.g., flip tense, add `not`, swap singular for plural). Naturalistic.
+   a stanza/spaCy parse and synthesize the minimal-pair edit (flip tense,
+   add `not`, swap singular for plural, etc.). Naturalistic.
 3. **LLM-generated.** Have a strong model write 1k diverse pairs per
-   category given a 5-shot prompt. Best diversity, costs API tokens.
+   category given a 5-shot prompt. Best diversity. Indispensable for
+   Tier 3 (Ithkuil-style abstract) and parts of Tier 4–5, where the
+   distinction has no template.
+4. **Multilingual minimal pairs (NEW).** For categories English doesn't
+   mark morphologically — most of Tier 2 — pair source isn't English at
+   all. Three sub-strategies:
 
-**Output**: `data/interim/minimal_pairs/{category}.jsonl` with
-`{positive, negative, edit_type, source}`.
+   a. **Parallel-corpus paired sentences.** FLORES-200 ships parallel
+      translations across 200 languages. For evidentiality, pull Tariana
+      / Quechua / Turkish sentences that explicitly mark the distinction;
+      pair the morphologically-marked positive with a same-meaning,
+      different-mark negative *in the same language*. Probe the LLM with
+      the foreign-language pairs. The model's concept space is multilingual
+      — the direction we recover is the *concept*, not a language-specific
+      morpheme.
+
+   b. **Translation-aligned contrast.** A single English sentence paired
+      with two translations into a marking language that differ only in
+      the grammatical category of interest. ("I saw the dog" → Turkish
+      direct-evidential vs Turkish inferential.) The English source
+      anchors meaning; the contrast lives in the translation.
+
+   c. **Code-switched English.** For categories where a marking language
+      has a productive particle that's borrowable, generate
+      English-with-particle pairs ("I saw it" vs "I saw it -mış"). Weak
+      but fast; useful as a control.
+
+   Multilingual minimal pairs are honest because the rest of the pipeline
+   already premises on a language-agnostic concept space. They're also
+   the only fair way to probe Tier 2 — generating English approximations
+   biases the probe toward whatever English does encode.
+
+**Output**: `data/interim/minimal_pairs/{tier}/{category}.jsonl` with
+`{positive, negative, edit_type, source, source_language}`.
 
 ### Direction extraction
 
@@ -294,15 +477,33 @@ the distributed layer.
 
 ### Done criteria
 
-- ≥ 15 categories with cleanly validated directions (≥ 85% held-out
-  accuracy) across at least one (model, layer) combination.
-- ≥ 5 categories classified as sparse/lexical (yield concrete lexicon
-  entries).
-- ≥ 5 categories classified as diffuse/affix (yield grammatical
-  operators).
+Targets are tier-aware now that the roster is ~80 categories:
+
+- **Tier 1 (~20 categories):** ≥ 15 validated. This is the floor — if Tier
+  1 underperforms, the pipeline is broken, not the model.
+- **Tier 2 (~30 categories):** ≥ 12 validated across at least one
+  (model, layer). Cross-model agreement (validated in both 2B and 9B) is
+  the highest-confidence subset; aim for ≥ 5 cross-validated.
+- **Tier 3 (~11 categories):** ≥ 2 validated would be a real result.
+  Zero is also a result — "Ithkuil-style distinctions don't separate
+  cleanly in Gemma 2's concept space" is publishable as a negative
+  finding.
+- **Tier 4 (~10 categories):** ≥ 6 validated, mostly at later layers
+  than Tier 1.
+- **Tier 5 (~10 categories):** ≥ 5 validated. Sentiment / formality /
+  refusal are nearly guaranteed; others test the breadth.
+
+Across all tiers:
+- ≥ 10 categories classified as **sparse/lexical** → concrete function
+  lexicon entries.
+- ≥ 10 categories classified as **diffuse/affix** → grammatical
+  operators.
 
 Anything less is a finding too — write it up. "We probed for X, the
-model didn't encode it cleanly" is honest and on-brand.
+model didn't encode it cleanly" is honest and on-brand. The negative
+results in Tier 3 in particular are valuable: they tell you something
+about the shape of the model's grammatical space that no successful
+result can.
 
 ---
 
@@ -412,12 +613,25 @@ Update `docs/grammar.md`:
   walked" template might encode `walk`-the-content alongside tense.
   Mitigation: average across many lexical contexts; the direction-finding
   method already cancels content if the slot fill is diverse enough.
-- **Category list is English-shaped.** We're probing for the
-  grammatical categories English makes salient, which biases what we
-  find. Mitigation: after the first pass, repeat the minimal-pair
-  generation with templates seeded from typologically diverse
-  languages (FLORES is multilingual; use parallel sentences) and check
-  whether any new directions surface.
+- **Category list is no longer English-shaped, but the discovery method
+  still is.** The roster spans typological + Ithkuil + LLM-native, but
+  someone had to write it, and that someone (and the LLM that helped)
+  thinks in human-language categories. The probe will not find a
+  distinction nobody on Earth has named. Mitigation: accept the
+  limitation, document it in the methodology writeup, and treat any
+  category where multiple Tier-3 probes converge on overlapping top
+  features as a hint that the model carves the space along a seam we
+  didn't name explicitly. Worth a notebook of "what's left unaccounted
+  for" — pick the validation-failed cells and inspect what direction
+  *did* separate the pairs (if any), even if it wasn't the one we
+  intended to find.
+- **Multilingual probing assumes the concept space is genuinely
+  language-agnostic.** Prior work supports this for content concepts; the
+  jury is partially out for grammatical ones. Mitigation: cross-validate
+  by probing the same category in multiple source languages and checking
+  that the recovered directions cluster. Wide spread between source
+  languages = the "concept" is partly a language-specific morphological
+  pattern, not a shared concept; that's also a finding.
 - **Audit regex is biased toward auto-interp's vocabulary.** Neuronpedia
   labels were generated by a different LLM with its own preferred
   description style. Iterate the regex table after the first run by
