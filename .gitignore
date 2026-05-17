@@ -14,6 +14,9 @@ htmlcov/
 # Claude Code session-local config
 .claude/
 
+# Claude Code session handoff (bob skill)
+BREADCRUMB.md
+
 # Pipeline artifacts (symlinked to fauna NVMe)
 data
 site/
