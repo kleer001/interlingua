@@ -165,3 +165,17 @@ def test_phonological_distance_vowel_change_nonzero():
     # /pa/ vs /pi/ — vowel quality only
     assert phonological_distance("pa", "pi") > 0
     assert phonological_distance("pa", "pi") < phonological_distance("pa", "ki")
+
+
+def test_phonological_distance_nw_recovers_leading_insertion():
+    """NW must find the gap-at-start alignment for 'apa' vs 'pa'.
+
+    Optimal NW alignment is '-pa' against 'apa' (one leading indel of
+    /a/), so the cost is exactly the cost of indeling /a/ — i.e., equal
+    to phonological_distance('a', ''). A naive position-aligned kernel
+    would have given dist(a,p) + dist(p,a) + ||a||² (much larger),
+    which is the discriminating signal that NW is doing real work.
+    """
+    d_nw = phonological_distance("apa", "pa")
+    only_a = phonological_distance("a", "")
+    assert d_nw == pytest.approx(only_a, abs=1e-9)

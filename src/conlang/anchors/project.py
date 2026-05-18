@@ -74,36 +74,42 @@ def project_entries(entries, *, field: str = "projected"):
 
 
 def phonological_distance(stem_a: str, stem_b: str) -> float:
-    """Position-aligned panphon-feature Euclidean distance between two stems.
+    """Needleman-Wunsch alignment over per-segment squared-Euclidean cost.
 
-    Both inputs are featurized segment-by-segment via panphon. The two
-    segment-vector lists are aligned by position; positions beyond the
-    shorter list contribute the squared L2 norm of the longer's vector at
-    that index (i.e., the missing-segment penalty is whatever feature
-    weight the present segment carries). The returned distance is the
-    sqrt of the summed squared deviations, i.e., a proper L2 over the
-    concatenated 24-d-per-segment feature space with zero-padding.
+    Both inputs are featurized segment-by-segment via panphon. NW DP finds
+    the alignment minimizing total cost over three operations:
+      - substitution: squared-Euclidean distance between segment vectors
+      - indel (gap):  squared L2 norm of the segment being indeled (its
+        distance to the zero vector — same penalty the prior
+        position-aligned kernel charged for trailing unmatched segments)
+    The returned distance is sqrt of the optimal alignment cost.
 
-    This is the metric Phase 3 of the Stage-6 cutover tunes Spearman ρ
-    against (`semanticphonology.md` §3 Phase 3). Identity returns 0.0;
-    swapping arguments preserves the value (symmetric).
-
-    Position alignment is deliberate: it matches the existing
-    `_distance` kernel and keeps the metric cheap. If Phase 3 reveals
-    that position alignment is too brittle for variable-length stems,
-    the natural upgrade is Needleman-Wunsch over the same per-segment
-    squared-Euclidean cost — same metric semantics, different alignment.
+    NW supersedes the position-aligned kernel (introduced in 7343d35)
+    after Phase 3 Spearman ρ landed at 0.03 against the N=2000 substrate:
+    variable-length stems and shifted insertions were forced into an
+    arbitrary positional zip that washed out fine structure. Same panphon
+    kernel; different alignment. Identity returns 0.0; symmetric under
+    argument swap.
     """
     fa = featurize_ipa(stem_a) if stem_a else []
     fb = featurize_ipa(stem_b) if stem_b else []
     if not fa and not fb:
         return 0.0
-    n = max(len(fa), len(fb))
+    n_a, n_b = len(fa), len(fb)
     dim = len(fa[0]) if fa else len(fb[0])
     zero = [0] * dim
-    sq = 0
-    for i in range(n):
-        va = fa[i] if i < len(fa) else zero
-        vb = fb[i] if i < len(fb) else zero
-        sq += _distance(va, vb)
-    return sq**0.5
+    inf = float("inf")
+    dp = [[inf] * (n_b + 1) for _ in range(n_a + 1)]
+    dp[0][0] = 0
+    for i in range(1, n_a + 1):
+        dp[i][0] = dp[i - 1][0] + _distance(fa[i - 1], zero)
+    for j in range(1, n_b + 1):
+        dp[0][j] = dp[0][j - 1] + _distance(fb[j - 1], zero)
+    for i in range(1, n_a + 1):
+        for j in range(1, n_b + 1):
+            dp[i][j] = min(
+                dp[i - 1][j - 1] + _distance(fa[i - 1], fb[j - 1]),
+                dp[i - 1][j] + _distance(fa[i - 1], zero),
+                dp[i][j - 1] + _distance(fb[j - 1], zero),
+            )
+    return dp[n_a][n_b] ** 0.5
