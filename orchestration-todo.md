@@ -225,27 +225,31 @@ Once you know where you are, here's where to read:
 
 ---
 
-## 5. Status snapshot — fill in from your investigation
+## 5. Status snapshot — 2026-05-17
 
-Replace each `(check)` with what §2 told you. Re-commit when you do.
+Phase 0 of the Stage-6 cutover has landed locally. N bumped from 1000 to
+2000; Stages 1–3 + 5 re-ran end-to-end on the new feature set; substrate
+and anchor snapshots are frozen on disk. None of these working-tree
+changes are committed yet (`phonological_distance`, the two snapshot
+modules, the grammar.md cutover note).
 
 | Workstream | Reported state | Local state | Notes |
 | --- | --- | --- | --- |
-| Stage 1 ingest (N=?) | shipped @ N=1000 | (check `wc -l data/raw/features.jsonl`) | |
-| Stage 2 dedupe | shipped | (check `data/interim/hdbscan_labels.npy`) | |
-| Stage 3 coactivation | shipped | (check `data/interim/coactivation/pmi.npy` mtime) | |
-| Stage 3 crystals | landed negative per README | (check `data/processed/crystal_bridge/`) | left as a fossil |
-| Stage 5 regularize | shipped | (check `data/processed/regularized.json`) | |
-| Track B lexicon | shipped, hash-based | (check `data/processed/lexicon.json`) | doomed by cutover |
-| Anchor pipeline Phases 1, 3, 6 | shipped per `anchor-data-plan.md` | (check `anchoring/processed/`) | |
+| Stage 1 ingest | shipped | **N=2000** (was 1000); `data/raw/features.jsonl` + `decoder_vecs.npy` regenerated 2026-05-17 | bump per `semanticphonology.md` §"N is a knob" |
+| Stage 2 dedupe | shipped | `data/interim/hdbscan_labels.npy` @ N=2000 → 1748 clusters, 1741 noise, 7 non-singleton | sparse clustering as expected on cosine |
+| Stage 3 coactivation | shipped | `data/interim/coactivation/{pmi,cofire,fires}.npy` @ N=2000; 1975/2000 features fired ≥ once | FLORES 6 langs × ~1000 sentences, 189k tokens |
+| Stage 3 crystals | landed negative per README | `data/processed/crystal_bridge/` intact (N=1000 era) | left as a fossil; not re-run at N=2000 |
+| Stage 5 regularize | shipped | `data/processed/regularized.json` @ N=2000; 1975/2000 nodes have a parent | re-derived on the N=2000 graph |
+| Track B lexicon | shipped, hash-based | `data/processed/lexicon.json` (still N=1000); `docs/static/lexicon.html` tagged `lexicon-pre-cutover` | not rebuilt at N=2000 by design — Phase 2 cutover will replace it entirely |
+| Anchor pipeline Phases 1, 3, 6 | shipped per `anchor-data-plan.md` | `anchoring/processed/anchors-v1.{jsonl,csv,html}`, `signatures-v1.jsonl` (63 concepts), `attribute-anchors.jsonl` (146 rows) | feeds the Phase-0 anchors snapshot |
 | Anchor pipeline Phase 2 (PanLex) | redirected to Epitran enrichment | n/a | see `anchor-data-plan.md` |
-| Stage 6 cutover Phase 0 | planned | (check for `substrate-v*.parquet`) | next thing to land |
-| Stage 6 cutover Phase 1 | planned | (check for `src/conlang/interpolate.py`) | |
+| Stage 6 cutover Phase 0 | ✓ **landed 2026-05-17** | `data/processed/substrate-v1-n2000.parquet` (29 MB, 2000 × 2304-d), `data/processed/anchors-v1.parquet` (63 KB, 63 concepts), `phonological_distance()` in `src/conlang/anchors/project.py` w/ 7 tests, `lexicon-pre-cutover` git tag, N=2000 noted in `grammar.md` | acceptance criteria all met; uncommitted in working tree |
+| Stage 6 cutover Phase 1 | planned, next | `src/conlang/interpolate.py` not yet present | needs user nod; reads `substrate-v1-n2000.parquet` + `anchors-v1.parquet` |
 | Stage 6 cutover Phase 2 | planned | n/a | atomic with grammar.md edit |
-| Stage 6 cutover Phase 3 | planned | n/a | needs Spearman metric script |
-| GLUE survey | planned, not started | (check `data/interim/glue/`) | independent of cutover |
-| Concept inventory growth | ~100 concepts | `wc -l src/conlang/anchors/concepts.py` or count entries | gate condition for N > 2000 |
-| Deliverables | shipped @ N=1000 hash | (check `docs/static/lexicon.html` row count) | regenerate after cutover |
+| Stage 6 cutover Phase 3 | planned | n/a | needs Spearman metric script — `phonological_distance` is now in place to feed it |
+| GLUE survey | planned, identified | `data/interim/glue/` empty; Path 1 audit can run NOW against `features.jsonl` + `regularized.json` (no GPU, no SAE forward pass) | `GLUE-TODO.md` §"Suggested order" step 1 |
+| Concept inventory | **114 concepts** | `src/conlang/anchors/concepts.py` (was ~100 before) | comfortably above the N=2000 anchor-density floor of 100; further growth needed before N→5000 |
+| Deliverables | shipped @ N=1000 hash | `docs/static/lexicon.html` 1011 rows (= 1000 entries + header); preserved by `lexicon-pre-cutover` tag | regenerate after cutover |
 
 ---
 

@@ -108,6 +108,15 @@ stems differ; class disambiguation is by context.
 
 ## Phonosemantic stems
 
+> **Cutover in progress.** The hash scheme below is the live Track-B
+> baseline (see `semanticphonology.md`). Phase 0 of the cutover has
+> frozen the substrate at **N = 2000** features
+> (`data/processed/substrate-v1-n2000.parquet`) and the anchor pool at
+> v1 (`data/processed/anchors-v1.parquet`). Phase 2 will replace the
+> CV1/CV2/CV3 hash with anchor-interpolated stems; until then, the
+> 1000-entry hash lexicon shipped at `lexicon-pre-cutover` (git tag)
+> remains the canonical Track-B deliverable.
+
 Every stem in the lexicon is built from three syllables (occasionally
 four, in collision-resolution rounds):
 
