@@ -126,25 +126,25 @@ def synthesize_english_anchors(
             continue
         if not c.english_seeds:
             continue
-        seed = c.english_seeds[0]
-        entries.append(
-            AnchorEntry(
-                concept=c.slug,
-                category=c.category,
-                language="English",
-                language_code="en",
-                orthography=seed,
-                romanization=None,
-                ipa=None,
-                source="inventory-english-seed",
-                source_url="",
-                source_revid=None,
-                captured_at=today,
-                notes=None,
-                extra={"seed_origin": "concepts.english_seeds[0]"},
+        for idx, seed in enumerate(c.english_seeds):
+            entries.append(
+                AnchorEntry(
+                    concept=c.slug,
+                    category=c.category,
+                    language="English",
+                    language_code="en",
+                    orthography=seed,
+                    romanization=None,
+                    ipa=None,
+                    source="inventory-english-seed",
+                    source_url="",
+                    source_revid=None,
+                    captured_at=today,
+                    notes=None,
+                    extra={"seed_origin": f"concepts.english_seeds[{idx}]"},
+                )
             )
-        )
-        added += 1
+            added += 1
     return entries, added
 
 

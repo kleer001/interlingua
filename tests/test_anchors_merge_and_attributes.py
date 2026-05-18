@@ -7,7 +7,7 @@ from conlang.anchors.attributes import (
     build_attribute_anchor_table,
     signature_for,
 )
-from conlang.anchors.merge import _canonicalize, merge_streams
+from conlang.anchors.merge import _canonicalize, merge_streams, synthesize_english_anchors
 from conlang.anchors.schema import AnchorEntry
 
 
@@ -75,6 +75,35 @@ def test_merge_backfills_missing_fields_from_later_source():
     e = next(x for x in merged if x.orthography == "woof")
     assert e.romanization == "wuf"
     assert e.ipa == "/wuf/"
+
+
+def test_synthesize_english_loops_all_seeds_for_lacking_concept():
+    """Concepts lacking English should receive one entry per english_seed.
+
+    Picks 'dog_howling' (seeds: 'awoo', 'howl') — a multi-seed concept — and
+    starts from an empty entries list so the concept is guaranteed to lack
+    English. Confirms both seeds land with distinct seed_origin provenance.
+    """
+    entries: list[AnchorEntry] = []
+    out, added = synthesize_english_anchors(entries)
+    howling = [e for e in out if e.concept == "dog_howling" and e.language_code == "en"]
+    orthographies = {e.orthography for e in howling}
+    assert "awoo" in orthographies
+    assert "howl" in orthographies
+    origins = {e.extra.get("seed_origin") for e in howling}
+    assert origins == {"concepts.english_seeds[0]", "concepts.english_seeds[1]"}
+    assert added >= 2
+
+
+def test_synthesize_english_skips_concept_already_covered():
+    """If a concept already has an English entry, no seeds should be added."""
+    seed = _entry(concept="dog_barking", language_code="en", orthography="woof")
+    entries = [seed]
+    out, added = synthesize_english_anchors(entries)
+    dog_bark_en = [e for e in out if e.concept == "dog_barking" and e.language_code == "en"]
+    # dog_barking has 4 seeds but should be untouched because English already exists.
+    assert len(dog_bark_en) == 1
+    assert dog_bark_en[0].source == "wikipedia"
 
 
 def test_attribute_registry_concepts_exist_in_inventory():
