@@ -51,9 +51,16 @@ def test_syllabify_rejects_consonant_at_end():
 
 
 def test_syllabify_rejects_unknown_consonant():
-    # r is not in our inventory
-    assert syllabify("ra") is None
+    # h, ch, j are tracked as candidates but not in the inventory yet.
     assert syllabify("hapa") is None
+    assert syllabify("qa") is None
+
+
+def test_syllabify_accepts_r():
+    # r is in the inventory: the canonical iconicity carrier for
+    # rolling/rumbling. See grammar.md "Inventory candidates under review".
+    assert syllabify("rapa") == ["ra", "pa"]
+    assert syllabify("kuru") == ["ku", "ru"]
 
 
 def test_syllabify_empty_returns_none():
@@ -111,10 +118,11 @@ def test_apply_class_prefix_class_9_alveolar_prenasalizes():
 
 
 def test_apply_class_prefix_class_9_yi_for_other_consonants():
-    # s/w/l/etc. take the yi- allomorph.
+    # s/w/l/r/etc. take the yi- allomorph; "nr" would be an illegal cluster.
     assert apply_class_prefix("soko", 9) == "yisoko"
     assert apply_class_prefix("wamafe", 9) == "yiwamafe"
     assert apply_class_prefix("lupa", 9) == "yilupa"
+    assert apply_class_prefix("ruma", 9) == "yiruma"
 
 
 def test_apply_class_prefix_class_9_y_before_vowel():

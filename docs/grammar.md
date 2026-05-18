@@ -2,13 +2,17 @@
 
 ## Phonology
 
-The inventory is deliberately small and Bantu-shaped. The aim is that any
-generated stem be pronounceable by a speaker of any natural language
-without specialist training.
+The inventory grows thoughtfully. Minimalism is not the goal — fidelity to
+the hidden language between languages is. We bias toward sounds present in
+most natural languages so any generated stem stays pronounceable without
+specialist training, and we expand the inventory when iconicity or
+expressive coverage would otherwise be lost in translation. The shape
+remains Bantu-leaning because that family gave the best starting point, not
+because we are bound to it.
 
 **Vowels (5):** `a e i o u`
 
-**Single consonants (15):** `p t k b d g m n s z f v l w y`
+**Single consonants (16):** `p t k b d g m n s z f v l r w y`
 
 **Nasal digraphs (2):** `ny ng` — single phonemes despite the two-letter
 spelling.
@@ -64,13 +68,31 @@ forms depending on the stem's initial sound:
 
 - **Prenasalized stop:** `m` before `p` or `b`, `n` before `t` or `d`.
   Produces `mp-`, `mb-`, `nt-`, `nd-`.
-- **`yi-`** (or just `y-` before a vowel) for every other onset. The pure
-  homorganic outcome (`ng+k`, `n+s`, `n+w`, …) would produce
-  phonotactically illegal clusters in this inventory, so we use a
+- **`yi-`** (or just `y-` before a vowel) for every other onset, including
+  `r`. The pure homorganic outcome (`ng+k`, `n+s`, `n+w`, `n+r`, …) would
+  produce phonotactically illegal clusters in this inventory, so we use a
   vowel-bearing allomorph instead.
 
 This is the one place where the inventory and the morphology had to
 negotiate. It is documented because the negotiation matters.
+
+### Inventory candidates under review
+
+Tracked so we keep an honest eye on what gets lost in translation:
+
+- **`h`** — breath/whisper iconicity has no current home. Cheap to add
+  (most languages have some [h] or aspirated stops; main exceptions are
+  French and Italian), but acoustically weak and easily dropped in casual
+  speech. Deferred until the iconicity work shows the gap matters.
+- **`ch` / `j`** (affricates `tʃ`, `dʒ`) — punctate-sharp iconicity is
+  already partly covered by `t k s`. Affricates would add digraph
+  orthography, new minimal-pair confusions (`ch`/`sh`, `j`/`y`), and
+  homorganic-sandhi work in class 9. Deferred on diminishing returns.
+- **`r`** — added. Canonical carrier for rolling/rumbling iconicity, and
+  no good substitute. Cost: `r` is the most variable consonant across
+  world languages (trill, tap, approximant), and many L1s conflate r/l;
+  the inventory commits to a tap-or-approximant tolerant reading rather
+  than a specific articulation.
 
 ### Vowel hiatus
 

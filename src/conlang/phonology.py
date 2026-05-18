@@ -1,11 +1,16 @@
-"""Stage 6 phonology: minimal Bantu-shaped phoneme inventory + affix table.
+"""Stage 6 phonology: Bantu-shaped phoneme inventory + affix table.
 
 Scope: enough machinery to assign valid forms to the 1000 nodes in
 data/processed/regularized.json (that work happens in Stage 6 form assignment,
 not here). This module is pure data + composition.
 
+The inventory grows thoughtfully: biased toward sounds present in most natural
+languages so any generated stem stays pronounceable without specialist
+training, and expanded when iconicity or expressive coverage would otherwise
+be lost in translation. Minimalism is not the goal.
+
 Design choices:
-- 5 vowels, 15 single consonants, 2 nasal digraphs (ny, ng) treated as single
+- 5 vowels, 16 single consonants, 2 nasal digraphs (ny, ng) treated as single
   phonemes.
 - Syllable template: (C)V. Onsets allow single consonants, the nasal digraphs,
   and four prenasalized clusters (mp, mb, nt, nd) that fall out of class-9
@@ -28,7 +33,7 @@ SINGLE_CONSONANTS: tuple[str, ...] = (
     "p", "t", "k", "b", "d", "g",
     "m", "n",
     "s", "z", "f", "v",
-    "l", "w", "y",
+    "l", "r", "w", "y",
 )
 
 NASAL_DIGRAPHS: tuple[str, ...] = ("ny", "ng")
