@@ -15,6 +15,11 @@ out.
 Syllable structure (CV vs CVN) is NOT enforced at the segment-projection
 layer — that's a downstream cleanup that may want to insert epenthetic
 vowels or drop illegal codas. Projecting first, syllabifying after.
+
+`phonological_distance` lives here too — same feature space, same
+squared-Euclidean kernel — because Phase 3 of the Stage-6 cutover
+(`semanticphonology.md`) needs to score how well interpolation preserves
+substrate geometry against the metric used for projection.
 """
 
 from __future__ import annotations
@@ -66,3 +71,39 @@ def project_entries(entries, *, field: str = "projected"):
     for e in entries:
         p = project_ipa(e.ipa) if e.ipa else ""
         yield e, p
+
+
+def phonological_distance(stem_a: str, stem_b: str) -> float:
+    """Position-aligned panphon-feature Euclidean distance between two stems.
+
+    Both inputs are featurized segment-by-segment via panphon. The two
+    segment-vector lists are aligned by position; positions beyond the
+    shorter list contribute the squared L2 norm of the longer's vector at
+    that index (i.e., the missing-segment penalty is whatever feature
+    weight the present segment carries). The returned distance is the
+    sqrt of the summed squared deviations, i.e., a proper L2 over the
+    concatenated 24-d-per-segment feature space with zero-padding.
+
+    This is the metric Phase 3 of the Stage-6 cutover tunes Spearman ρ
+    against (`semanticphonology.md` §3 Phase 3). Identity returns 0.0;
+    swapping arguments preserves the value (symmetric).
+
+    Position alignment is deliberate: it matches the existing
+    `_distance` kernel and keeps the metric cheap. If Phase 3 reveals
+    that position alignment is too brittle for variable-length stems,
+    the natural upgrade is Needleman-Wunsch over the same per-segment
+    squared-Euclidean cost — same metric semantics, different alignment.
+    """
+    fa = featurize_ipa(stem_a) if stem_a else []
+    fb = featurize_ipa(stem_b) if stem_b else []
+    if not fa and not fb:
+        return 0.0
+    n = max(len(fa), len(fb))
+    dim = len(fa[0]) if fa else len(fb[0])
+    zero = [0] * dim
+    sq = 0
+    for i in range(n):
+        va = fa[i] if i < len(fa) else zero
+        vb = fb[i] if i < len(fb) else zero
+        sq += _distance(va, vb)
+    return sq**0.5

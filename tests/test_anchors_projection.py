@@ -10,7 +10,7 @@ from conlang.anchors.inventory import (
     is_vowel,
     phoneme_features,
 )
-from conlang.anchors.project import project_ipa, project_segment
+from conlang.anchors.project import phonological_distance, project_ipa, project_segment
 
 panphon = pytest.importorskip("panphon")
 
@@ -117,3 +117,51 @@ def test_projection_length_matches_segment_count():
         n_segs = len(featurize_ipa(ipa))
         proj = project_ipa(ipa)
         assert len(proj) == n_segs, f"{ipa!r}: {n_segs} segs -> {proj!r}"
+
+
+# ── phonological_distance ────────────────────────────────────────────────
+
+
+def test_phonological_distance_identity_is_zero():
+    assert phonological_distance("paka", "paka") == 0.0
+    assert phonological_distance("mu", "mu") == 0.0
+
+
+def test_phonological_distance_empty_inputs():
+    assert phonological_distance("", "") == 0.0
+    assert phonological_distance(None, None) == 0.0  # type: ignore[arg-type]
+
+
+def test_phonological_distance_symmetric():
+    assert phonological_distance("paka", "tama") == phonological_distance("tama", "paka")
+    assert phonological_distance("pi", "ba") == phonological_distance("ba", "pi")
+
+
+def test_phonological_distance_voicing_close_but_nonzero():
+    # /p/ vs /b/ differ on +/- voi only — small but positive distance
+    d = phonological_distance("pa", "ba")
+    assert d > 0
+    # bounded by sqrt of one feature flip × 2 max = sqrt(4) = 2
+    assert d <= 2.0
+
+
+def test_phonological_distance_grows_with_more_changes():
+    # one stop change vs two stop changes
+    d1 = phonological_distance("pata", "bata")
+    d2 = phonological_distance("pata", "baka")
+    assert d2 > d1 > 0
+
+
+def test_phonological_distance_length_penalty():
+    # "paka" vs "pa" must cost more than identity but less than "paka" vs "ziza"
+    same = phonological_distance("paka", "paka")
+    short_long = phonological_distance("pa", "paka")
+    very_different = phonological_distance("paka", "ziza")
+    assert short_long > same
+    assert very_different > short_long
+
+
+def test_phonological_distance_vowel_change_nonzero():
+    # /pa/ vs /pi/ — vowel quality only
+    assert phonological_distance("pa", "pi") > 0
+    assert phonological_distance("pa", "pi") < phonological_distance("pa", "ki")
