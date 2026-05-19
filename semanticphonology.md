@@ -246,13 +246,23 @@ Recorded as they land, newest first. Each row: substrate, kernel,
 anchor regime, embed text, ρ on 10k random feature-pairs (seed=0), and
 the directional take-away.
 
-| Date | Substrate | Kernel | Anchors | Embed text | ρ | p | Note |
-|---|---|---|---|---|---|---|---|
-| 2026-05-18 | N=2000 | NW | 1574 attribute | `f"{slug} ({seed}) :: {attr}"` | **0.0292** | 3.46e-3 | Restored iconic seed inside attribute prose. Recovers 64% of the seed-removal loss but still 20% below concept-level baseline. Verbose surround dilutes residual position. |
-| 2026-05-18 | N=2000 | NW | 1574 attribute | `f"{slug} :: {attribute}"` | **0.0178** | 7.62e-2 | Granularity hypothesis falsified. ρ *dropped* with 25× more anchors. |
-| 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` ("hiss") | **0.0365** | 2.65e-4 | A/B re-run after embed-positions refactor; matches prior NW measurement. Confirms baseline reproduces. |
-| 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` | 0.0365 | 2.65e-4 | First NW measurement after upgrading `phonological_distance()` from position-aligned to Needleman-Wunsch. |
-| 2026-05-17 | N=2000 | position-aligned | 63 concept | `english_seeds[0]` | 0.0297 | 2.94e-3 | First Phase-3 measurement. |
+All measurements: N=2000 substrate, NW phonological-distance kernel,
+Gemma 2 2B residual mean-pool, 10k random feature-pairs (seed=0). The
+`layer` column is the `hidden_states[i]` index (layer-13 = output of
+transformer block 12).
+
+| Date | Anchors | Embed text | Layer | ρ | p | Note |
+|---|---|---|---|---|---|---|
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 25 | 0.0174 | 8.18e-2 | Layer-sweep: very late layer drops back. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 21 | 0.0348 | 4.92e-4 | Layer-sweep: ties layer-13 within noise. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 17 | 0.0154 | 1.24e-1 | Layer-sweep: weak. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 9 | 0.0197 | 4.86e-2 | Layer-sweep: early-mid carries less semantic signal. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 5 | 0.0079 | 4.30e-1 | Layer-sweep: early layers near-zero, as expected. |
+| 2026-05-18 | 1574 attribute | `f"{slug} ({seed}) :: {attr}"` | 13 | **0.0292** | 3.46e-3 | Slug+seed format. Restored iconic seed inside attribute prose. Recovers 64% of the seed-removal loss but still 20% below concept-level baseline. |
+| 2026-05-18 | 1574 attribute | `f"{slug} :: {attribute}"` | 13 | **0.0178** | 7.62e-2 | Granularity hypothesis falsified. ρ *dropped* with 25× more anchors. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` ("hiss") | 13 | **0.0365** | 2.65e-4 | A/B re-run after embed-positions refactor. Confirms baseline reproduces and remains the highest measurement on record. |
+| 2026-05-18 | 63 concept | `english_seeds[0]` | 13 | 0.0365 | 2.65e-4 | First NW measurement after upgrading `phonological_distance()` from position-aligned to Needleman-Wunsch. |
+| 2026-05-17 | 63 concept | `english_seeds[0]` | 13 | 0.0297 | 2.94e-3 | First Phase-3 measurement (position-aligned kernel). |
 
 **Interpretation as of 2026-05-18.** All four measurements sit far
 below the 0.15 cutover threshold and far below §5's 0.2 "consonant
@@ -278,11 +288,38 @@ surround dilutes residual position too much to net-positive over
 concept-level. Reading: attribute granularity at any embed format
 costs more than density-gains justify.
 
-Next-rung experiment queued:
-- Layer-sweep at concept-level. Currently embedding from layer-13
-  (output of block 12). Earlier layers carry more lexical/phonological
-  info; later layers more abstract semantics. If no layer breaks
-  ρ ≥ 0.10, the cutover hypothesis is empirically dead at 2304-d.
+Experiment 2 (layer-sweep at concept-level, layers 5/9/13/17/21/25)
+ran 2026-05-18 and confirmed **no layer beats ρ ≈ 0.037**. Layers 13
+and 21 tie within noise at ρ ≈ 0.035; layers 5 and 9 are near-zero;
+layers 17 and 25 sit at ρ ≈ 0.015. No layer-of-the-cake unlocks a
+hidden plateau.
+
+**Conclusion — the cutover hypothesis is empirically dead at 2304-d
+for Gemma 2 2B on this substrate.** Best measured ρ across every
+configuration tried (anchor count from 63 to 1574; embed format from
+bare seed through slug+attribute to slug+seed+attribute; Gemma layers
+5 through 25) is **ρ = 0.0365**, against the §3 cutover threshold of
+0.15 and the §5 "consonant directionality is real" threshold of 0.20.
+The §5 question *Consonant directionality is the load-bearing claim*
+answered: **no, consonant features alone are not enough** to drive a
+hash → interpolation cutover at this scale.
+
+Implications for the project plan:
+- **`build_stem()` stays as the deterministic hash.** The `lexicon-pre-cutover`
+  tag at `af1c965` remains the live deliverable, not a fossil.
+- **#11 closes as a falsified hypothesis.** The 64 attribute bundles
+  in `attributes.py`, the attribute-level `embed_positions.py` mode,
+  and the interpolation library at `src/conlang/interpolate.py` all
+  stay in tree as the apparatus for any future experiment that
+  revisits this from a different angle (different model, different
+  substrate, different distance kernel, richer phonology).
+- **#13 (Phase 2 cutover) closes as blocked-indefinitely.** Reopen
+  only if a future experiment clears ρ ≥ 0.15 on a comparable
+  substrate.
+- **Anchor-pool work remains useful for other tracks** — GLUE Path 2,
+  query-interface (`semantic_neighbors`), hand-audit lexicon
+  inspection. The anchors are good cross-cultural-onomatopoeic data
+  even though they didn't move ρ here.
 
 ---
 
