@@ -1,4 +1,4 @@
-"""Embed each anchor concept into SAE residual space.
+"""Embed each anchor (concept or attribute) into SAE residual space.
 
 Per `semanticphonology.md` Phase 1, the natural-neighbor lookup needs
 anchors and features to live in the same space. Substrate features
@@ -6,21 +6,20 @@ already carry their SAE decoder vector (2304-d residual direction);
 anchors don't have a position yet — `signatures-v1.jsonl` only has the
 phon-side modal projection, not a semantic-space embedding.
 
-This module fills the gap. For each of the 63 concepts with a phon
-signature, we look up the concept's primary English seed in
-`concepts.py` (e.g. snake_hissing → "hiss"), run that text through
-Gemma 2 2B, and mean-pool the layer-12 residual hidden state over its
-non-pad tokens. The result is a 2304-d vector in the same coordinate
-system as each feature's decoder vector, so cosine distance between an
-anchor and a feature is well-defined and meaningful.
+This module fills the gap. Two modes:
 
-We anchor by *concept*, not by (concept, attribute), because only 14 of
-63 signed concepts have curated attribute bundles — using
-attribute-level rows would leave the substrate's other 49 concept
-regions without nearby anchors, which is what
-`semanticphonology.md`'s anchor-density floor is meant to prevent.
-Attribute-level interpolation is a follow-up enhancement once the
-attribute roster covers the rest of the concept inventory.
+**Attribute-level (default).** Iterate `ATTRIBUTE_REGISTRY`; for each
+(concept, attribute) pair whose concept has a phon signature, build the
+embed text `f"{concept_slug} :: {attribute}"` (e.g.
+"snake_hissing :: evil-bringer-abrahamic"), run through Gemma 2 2B, and
+mean-pool layer-12 residual over non-pad tokens. Slug-prefix
+disambiguates shared attribute words across concepts. Yields ~1600
+anchors at full inventory coverage, supplying the residual-space
+density that 63 concept-level anchors cannot.
+
+**Concept-level (legacy).** One row per signed concept; embed text is
+`english_seeds[0]` ("hiss", "woof", ...). Kept under `--anchor-level
+concept` for A/B comparison against the attribute regime.
 
 Output: `data/processed/anchor-positions-v1.parquet`. Filename does NOT
 embed N because the anchor positions are independent of slice size —
@@ -43,6 +42,7 @@ import torch  # noqa: E402
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 
 from .. import PROCESSED_DIR  # noqa: E402
+from .attributes import ATTRIBUTE_REGISTRY  # noqa: E402
 from .concepts import CONCEPTS  # noqa: E402
 
 DEFAULT_INPUT = Path("/media/menser/fauna/interlingua/anchoring/processed/signatures-v1.jsonl")
@@ -62,9 +62,8 @@ def _concept_seed_lookup() -> dict[str, str]:
     return out
 
 
-def load_concept_rows(path: Path) -> list[dict]:
-    """Read signatures-v1.jsonl and join the concept slug with its English seed."""
-    seeds = _concept_seed_lookup()
+def _read_signed_concepts(path: Path) -> list[dict]:
+    """Load each signed concept's metadata from signatures-v1.jsonl."""
     rows: list[dict] = []
     with path.open() as f:
         for line in f:
@@ -72,14 +71,78 @@ def load_concept_rows(path: Path) -> list[dict]:
             if not line:
                 continue
             sig = json.loads(line)
-            concept = sig["concept"]
-            seed = seeds.get(concept, concept.replace("_", " "))
+            rows.append(
+                {
+                    "concept": sig["concept"],
+                    "n_entries": sig.get("n_entries", 0),
+                    "n_languages": sig.get("n_languages", 0),
+                }
+            )
+    return rows
+
+
+def load_concept_rows(path: Path) -> list[dict]:
+    """Concept-level: one row per signed concept, text = english_seeds[0]."""
+    seeds = _concept_seed_lookup()
+    rows: list[dict] = []
+    for sig in _read_signed_concepts(path):
+        concept = sig["concept"]
+        seed = seeds.get(concept, concept.replace("_", " "))
+        rows.append(
+            {
+                "concept": concept,
+                "seed": seed,
+                "attribute": None,
+                "cultural": None,
+                "text": seed,
+                "n_entries": sig["n_entries"],
+                "n_languages": sig["n_languages"],
+            }
+        )
+    return rows
+
+
+def load_attribute_rows(path: Path) -> list[dict]:
+    """Attribute-level: one row per (signed concept, attribute) bundle entry.
+
+    Embed text is `f"{concept_slug} :: {attribute}"`. Slug-prefix
+    disambiguates concepts that share attribute words (e.g.
+    `cat_hissing` and `snake_hissing` both have `snake-mimic`).
+    Concepts with a phon signature but no bundle are skipped — but as
+    of B7 the registry covers all 63 signed concepts, so this should be
+    empty in practice.
+    """
+    seeds = _concept_seed_lookup()
+    signed = {s["concept"]: s for s in _read_signed_concepts(path)}
+    rows: list[dict] = []
+    for bundle in ATTRIBUTE_REGISTRY.values():
+        concept = bundle.concept
+        if concept not in signed:
+            continue
+        sig = signed[concept]
+        seed = seeds.get(concept, concept.replace("_", " "))
+        for attr in bundle.attributes:
             rows.append(
                 {
                     "concept": concept,
                     "seed": seed,
-                    "n_entries": sig.get("n_entries", 0),
-                    "n_languages": sig.get("n_languages", 0),
+                    "attribute": attr,
+                    "cultural": False,
+                    "text": f"{concept} :: {attr}",
+                    "n_entries": sig["n_entries"],
+                    "n_languages": sig["n_languages"],
+                }
+            )
+        for attr in bundle.cultural_attributes:
+            rows.append(
+                {
+                    "concept": concept,
+                    "seed": seed,
+                    "attribute": attr,
+                    "cultural": True,
+                    "text": f"{concept} :: {attr}",
+                    "n_entries": sig["n_entries"],
+                    "n_languages": sig["n_languages"],
                 }
             )
     return rows
@@ -119,23 +182,29 @@ def embed_texts(
     return np.concatenate(outs, axis=0)
 
 
-def write_parquet(rows: list[dict], output: Path, *, d_model: int, layer_index: int) -> None:
+def write_parquet(
+    rows: list[dict], output: Path, *, d_model: int, layer_index: int, anchor_level: str
+) -> None:
     import pyarrow as pa
     import pyarrow.parquet as pq
 
     table = pa.Table.from_pylist(rows)
+    note = (
+        f"Anchor positions in Gemma 2 2B layer-{layer_index - 1} residual stream. "
+        f"Mean-pooled over the embed text's non-pad tokens. Same coordinate system "
+        f"as the SAE decoder vectors in substrate-v1-n{{N}}.parquet. "
+        f"anchor_level={anchor_level}; text format: "
+        + ("'<concept_slug> :: <attribute>'" if anchor_level == "attribute" else "english_seeds[0]")
+        + "."
+    )
     md = {
-        b"schema_version": b"1",
+        b"schema_version": b"2",
         b"d_model": str(d_model).encode(),
         b"layer_index": str(layer_index).encode(),
         b"pool": b"mean-over-non-pad-tokens",
         b"model": b"google/gemma-2-2b",
-        b"note": (
-            b"Anchor positions in Gemma 2 2B layer-12 residual stream. "
-            b"Mean-pooled over the attribute text's non-pad tokens. "
-            b"Same coordinate system as the SAE decoder vectors in "
-            b"substrate-v1-n{N}.parquet."
-        ),
+        b"anchor_level": anchor_level.encode(),
+        b"note": note.encode(),
     }
     table = table.replace_schema_metadata(md)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -148,6 +217,14 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--layer-index", type=int, default=LAYER_INDEX)
+    parser.add_argument(
+        "--anchor-level",
+        choices=("concept", "attribute"),
+        default="attribute",
+        help="concept: one embed per signed concept (english_seeds[0]). "
+        "attribute: one embed per (concept, attribute) using "
+        "f'{slug} :: {attribute}' (default).",
+    )
     args = parser.parse_args()
 
     print("[1/3] Loading Gemma 2 2B (bf16) ...", flush=True)
@@ -158,10 +235,16 @@ def main() -> None:
     d_model = model.config.hidden_size
     print(f"      d_model={d_model}, layers={model.config.num_hidden_layers}", flush=True)
 
-    print(f"[2/3] Loading concept rows from {args.input.name} ...", flush=True)
-    rows = load_concept_rows(args.input)
-    texts = [r["seed"] for r in rows]
-    print(f"      {len(rows)} concepts; texts e.g. {texts[:3]}", flush=True)
+    print(
+        f"[2/3] Loading {args.anchor_level}-level rows from {args.input.name} ...",
+        flush=True,
+    )
+    if args.anchor_level == "attribute":
+        rows = load_attribute_rows(args.input)
+    else:
+        rows = load_concept_rows(args.input)
+    texts = [r["text"] for r in rows]
+    print(f"      {len(rows)} rows; texts e.g. {texts[:3]}", flush=True)
 
     print(f"[3/3] Forward + mean-pool at layer {args.layer_index} ...", flush=True)
     embeddings = embed_texts(
@@ -175,12 +258,20 @@ def main() -> None:
             {
                 "concept": r["concept"],
                 "seed": r["seed"],
+                "attribute": r["attribute"],
+                "cultural": r["cultural"],
                 "n_entries": int(r["n_entries"]),
                 "n_languages": int(r["n_languages"]),
                 "position": [float(x) for x in vec],
             }
         )
-    write_parquet(out_rows, args.output, d_model=d_model, layer_index=args.layer_index)
+    write_parquet(
+        out_rows,
+        args.output,
+        d_model=d_model,
+        layer_index=args.layer_index,
+        anchor_level=args.anchor_level,
+    )
     print(f"      wrote {len(out_rows)} anchor positions -> {args.output}")
 
 
