@@ -248,7 +248,8 @@ the directional take-away.
 
 | Date | Substrate | Kernel | Anchors | Embed text | ρ | p | Note |
 |---|---|---|---|---|---|---|---|
-| 2026-05-18 | N=2000 | NW | 1574 attribute (63 concepts × ~25 attrs) | `f"{slug} :: {attribute}"` | **0.0178** | 7.62e-2 | Granularity hypothesis falsified. ρ *dropped* with 25× more anchors. |
+| 2026-05-18 | N=2000 | NW | 1574 attribute | `f"{slug} ({seed}) :: {attr}"` | **0.0292** | 3.46e-3 | Restored iconic seed inside attribute prose. Recovers 64% of the seed-removal loss but still 20% below concept-level baseline. Verbose surround dilutes residual position. |
+| 2026-05-18 | N=2000 | NW | 1574 attribute | `f"{slug} :: {attribute}"` | **0.0178** | 7.62e-2 | Granularity hypothesis falsified. ρ *dropped* with 25× more anchors. |
 | 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` ("hiss") | **0.0365** | 2.65e-4 | A/B re-run after embed-positions refactor; matches prior NW measurement. Confirms baseline reproduces. |
 | 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` | 0.0365 | 2.65e-4 | First NW measurement after upgrading `phonological_distance()` from position-aligned to Needleman-Wunsch. |
 | 2026-05-17 | N=2000 | position-aligned | 63 concept | `english_seeds[0]` | 0.0297 | 2.94e-3 | First Phase-3 measurement. |
@@ -270,14 +271,18 @@ attribute regime traded it for slug+attribute abstraction. Whatever
 modest correlation existed at 0.0365 likely *was* the seed's iconicity
 leaking through Gemma's residual.
 
-Next-rung experiments queued (per §5, not §3):
-1. Reinstate the iconic seed inside the attribute embed text:
-   `f"{slug} ({seed}) :: {attribute}"`. Tests whether seed-iconicity
-   was the swing factor distinct from anchor granularity.
-2. Layer-sweep at concept-level. Currently embedding from layer-13
-   (output of block 12). Earlier layers carry more lexical/phonological
-   info; later layers more abstract semantics. If no layer breaks
-   ρ ≥ 0.10, the cutover hypothesis is empirically dead at 2304-d.
+Experiment 1 (slug+seed embed format) ran 2026-05-18 and lifted ρ to
+0.0292 — confirming seed-iconicity carries real signal, but still
+sub-baseline. The attribute regime adds anchor density but the prose
+surround dilutes residual position too much to net-positive over
+concept-level. Reading: attribute granularity at any embed format
+costs more than density-gains justify.
+
+Next-rung experiment queued:
+- Layer-sweep at concept-level. Currently embedding from layer-13
+  (output of block 12). Earlier layers carry more lexical/phonological
+  info; later layers more abstract semantics. If no layer breaks
+  ρ ≥ 0.10, the cutover hypothesis is empirically dead at 2304-d.
 
 ---
 
