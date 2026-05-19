@@ -10,12 +10,14 @@ This module fills the gap. Two modes:
 
 **Attribute-level (default).** Iterate `ATTRIBUTE_REGISTRY`; for each
 (concept, attribute) pair whose concept has a phon signature, build the
-embed text `f"{concept_slug} :: {attribute}"` (e.g.
-"snake_hissing :: evil-bringer-abrahamic"), run through Gemma 2 2B, and
-mean-pool layer-12 residual over non-pad tokens. Slug-prefix
-disambiguates shared attribute words across concepts. Yields ~1600
-anchors at full inventory coverage, supplying the residual-space
-density that 63 concept-level anchors cannot.
+embed text `f"{slug} ({seed}) :: {attribute}"` (e.g.
+"snake_hissing (hiss) :: evil-bringer-abrahamic"), run through Gemma
+2 2B, and mean-pool layer-12 residual over non-pad tokens. Slug-prefix
+disambiguates shared attribute words across concepts (cat_hissing vs.
+snake_hissing); seed-in-parens preserves the iconic phonological hook
+that pure slug-prefix loses. Yields ~1600 anchors at full inventory
+coverage, supplying the residual-space density that 63 concept-level
+anchors cannot.
 
 **Concept-level (legacy).** One row per signed concept; embed text is
 `english_seeds[0]` ("hiss", "woof", ...). Kept under `--anchor-level
@@ -105,9 +107,17 @@ def load_concept_rows(path: Path) -> list[dict]:
 def load_attribute_rows(path: Path) -> list[dict]:
     """Attribute-level: one row per (signed concept, attribute) bundle entry.
 
-    Embed text is `f"{concept_slug} :: {attribute}"`. Slug-prefix
+    Embed text is `f"{slug} ({seed}) :: {attribute}"` — slug-prefix
     disambiguates concepts that share attribute words (e.g.
-    `cat_hissing` and `snake_hissing` both have `snake-mimic`).
+    `cat_hissing` and `snake_hissing` both have `snake-mimic`), seed
+    in parentheses restores the iconic phonological hook that pure
+    slug-prefix loses (`flatulence :: ...` vs the iconic `fart`).
+
+    Prior format `f"{slug} :: {attribute}"` measured ρ = 0.0178 on
+    2026-05-18 — *halved* baseline concept-level NW (ρ = 0.0365),
+    diagnosing the seed-iconicity loss. See semanticphonology.md §3
+    measurements log.
+
     Concepts with a phon signature but no bundle are skipped — but as
     of B7 the registry covers all 63 signed concepts, so this should be
     empty in practice.
@@ -128,7 +138,7 @@ def load_attribute_rows(path: Path) -> list[dict]:
                     "seed": seed,
                     "attribute": attr,
                     "cultural": False,
-                    "text": f"{concept} :: {attr}",
+                    "text": f"{concept} ({seed}) :: {attr}",
                     "n_entries": sig["n_entries"],
                     "n_languages": sig["n_languages"],
                 }
@@ -140,7 +150,7 @@ def load_attribute_rows(path: Path) -> list[dict]:
                     "seed": seed,
                     "attribute": attr,
                     "cultural": True,
-                    "text": f"{concept} :: {attr}",
+                    "text": f"{concept} ({seed}) :: {attr}",
                     "n_entries": sig["n_entries"],
                     "n_languages": sig["n_languages"],
                 }
@@ -194,7 +204,11 @@ def write_parquet(
         f"Mean-pooled over the embed text's non-pad tokens. Same coordinate system "
         f"as the SAE decoder vectors in substrate-v1-n{{N}}.parquet. "
         f"anchor_level={anchor_level}; text format: "
-        + ("'<concept_slug> :: <attribute>'" if anchor_level == "attribute" else "english_seeds[0]")
+        + (
+            "'<slug> (<seed>) :: <attribute>'"
+            if anchor_level == "attribute"
+            else "english_seeds[0]"
+        )
         + "."
     )
     md = {
@@ -223,7 +237,7 @@ def main() -> None:
         default="attribute",
         help="concept: one embed per signed concept (english_seeds[0]). "
         "attribute: one embed per (concept, attribute) using "
-        "f'{slug} :: {attribute}' (default).",
+        "f'{slug} ({seed}) :: {attribute}' (default).",
     )
     args = parser.parse_args()
 
