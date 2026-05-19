@@ -1163,7 +1163,339 @@ Update `docs/grammar.md`:
 10. Path 5 Stage 3 (joint steering). Run after Path 4's steering
     finishes — same GPUs.
 11. Path 5 Stages 4–5 (cluster, name, cross-check).
-12. Phonotactics update + site build.
-13. Origin-story / methodology writeup. Last, after the artifact
-    stabilizes. Surface Path 4 and Path 5 findings prominently. Include
-    the unit-of-analysis caveat verbatim in the methodology section.
+12. Path 6 Stages 1–6 (synthesis: unify, collapse, type, induce
+    combinator rules, promote false lichens, emit grammar spec).
+    Mostly CPU; reuses Path 2's activation cache and Path 4/5
+    steering signatures.
+13. Phonotactics update + site build. Uses Path 6's core inventory.
+14. Origin-story / methodology writeup. Last, after the artifact
+    stabilizes. Surface Path 4, Path 5, and Path 6 findings
+    prominently. Include the unit-of-analysis caveat verbatim in the
+    methodology section.
+
+---
+
+## Path 6 — Particle grammar synthesis
+
+> Paths 1–5 produce a tagged inventory of operators. This path turns
+> that inventory into a *grammar*: a small typed alphabet of
+> particles plus the combinator rules that govern how they sequence.
+> The discovery work is done; what's left is collapsing redundancy
+> across paths, applying inventory-size pressure, typing what
+> survives, and inducing the combinatorial rules from real
+> activations.
+
+**Companion docs:** `spec.md` §5 (transformations as a primitive),
+`POST-GLUE-SKETCH.md` §0 (Path 6 runs *before* the post-glue agenda
+— it's the synthesis step that lets post-glue claim novelty against
+a *closed* grammar rather than a heap of operators).
+
+**Premise:** the parts are inert without the joints. Path 1 says
+"negation is in the lexicon." Path 2 says "negation has a clean
+direction." Path 4 says "this platypus steers polarity." Path 5
+says "this lichen flips scope under polarity." Four entries,
+plausibly one particle. The grammar can't ship with all four labels
+intact, and a Toki Pona / CCG-style design needs both a small typed
+alphabet *and* the combinator rules between elements — neither
+falls out of Paths 1–5 directly.
+
+### Stage 1 — Cross-path operator unification
+
+Take all four upstream deliverables and find what's duplicated:
+
+- `data/processed/function_lexicon.json` (Path 1)
+- `data/processed/function_lexicon_probed.json` (Path 2)
+- `data/processed/platypi.json` (Path 4)
+- `data/processed/lichens.json` (Path 5)
+
+For each entry across all four files, construct a common-space
+steering signature:
+
+- Path 1 entries: synthesize a signature by steering the entry's
+  feature on the standard 100-prompt steering set (same prompts
+  Path 4 used). Cheap — features already live in the lexicon.
+- Path 2 sparse / lexical entries: same — steer the top SAE feature.
+- Path 2 diffuse / affix entries: steer along the direction itself
+  (residual-stream intervention, no SAE projection). Same 100 prompts.
+- Path 4 platypi: reuse the existing signature.
+- Path 5 lichens: reuse the existing joint-steering signature.
+
+Every entry now has a signature vector in the same space.
+
+Build an alignment graph:
+
+1. Compute pairwise cosine similarity between all signatures.
+2. Threshold; start at 0.55 and sweep θ ∈ {0.45, 0.55, 0.65, 0.75}.
+3. Connected components of the thresholded graph are **unified
+   operators**.
+
+For each component:
+
+- Canonical representative wins by validation accuracy (Path 2) or
+  steering consistency (Paths 4/5); ties broken by agreement count.
+- Other members become aliases. Not discarded — the alias list
+  documents which atomic / compositional / supervised paths each
+  operator showed up in. That redundancy is evidence of reality.
+
+Expected shape: 60–120 raw upstream entries collapse to 30–50
+unified operators.
+
+**Output:** `data/interim/unified_operators.json`:
+```json
+{
+  "schema_version": 1,
+  "threshold_swept": [0.45, 0.55, 0.65, 0.75],
+  "threshold_chosen": 0.55,
+  "operators": [
+    {
+      "operator_id": "UOP-014",
+      "canonical_source": "path-4 / platypus / cluster-3",
+      "canonical_feature_id": 8421,
+      "signature": [...],
+      "validation_accuracy_path2": 0.91,
+      "steering_consistency_path4": 0.74,
+      "aliases": [
+        {"source": "path-1", "entry_id": "..."},
+        {"source": "path-2", "category": "negation"},
+        {"source": "path-5", "lichen_id": "LICHEN-007"}
+      ],
+      "best_label": "polarity-flip",
+      "agreement_count": 3
+    }
+  ]
+}
+```
+
+### Stage 2 — Inventory-size pressure (MDL collapse)
+
+Thirty-to-fifty operators is too many for a particle grammar. Apply
+pressure.
+
+1. Build a **grammatical-coverage test set**: ≈ 500 pairs of
+   contrasting short texts where the only difference is one
+   grammatical category (polarity, tense, scope, mood, register…).
+   Reuse Path 2's minimal-pair corpus — it's already exactly this.
+   Re-weight so each tier contributes proportionally to its
+   discovery yield (otherwise Tier 1's category count dominates
+   selection by sheer mass).
+2. Define **coverage of an operator inventory I** as test-set
+   accuracy of a sparse classifier using only I's steering
+   directions as features.
+3. Greedy forward selection: start from empty I, repeatedly add the
+   operator that gives the largest coverage gain, stop when marginal
+   gain falls below ε (start: 0.5% per added operator).
+4. Sweep θ from Stage 1 jointly with ε; pick the (θ, ε) that
+   maximizes coverage / inventory-size ratio. Threshold becomes
+   data-chosen, not author-chosen.
+
+Two outputs:
+
+- **Core inventory**: operators selected before the stop condition.
+  Target size: 6–14. The conlang's particle set.
+- **Long tail**: unified operators not selected. Remain in the
+  function lexicon as rare / register-specific items but don't get
+  particle slots in the grammar.
+
+If core inventory blows past 14, Gemma 2's operator space is
+genuinely high-dimensional and the conlang has to be. Document and
+proceed — the small-particle aesthetic isn't worth misrepresenting
+the model. If it comes in under 6, the test set is too narrow —
+expand it.
+
+**Output:** `data/processed/core_particles.json` and
+`data/processed/long_tail_operators.json`.
+
+### Stage 3 — Particle typing (arity, scope, binding)
+
+Each core particle needs a type signature. Three properties to
+recover per particle, all measurable from activation data:
+
+1. **Arity.** Steer the particle and measure structural scope of
+   the effect:
+   - Localized to firing token → unary (free-standing modifier).
+   - Spans firing token + one neighbor → binary.
+   - Spans firing token + clause → clause-scope.
+   Use Path 4 Stage 2's structural-shift profile across positions;
+   bucketize affected positions and read off the dominant scope.
+2. **Binding direction.** At the firing token, where does the
+   attention head most associated with the particle attend? Pull
+   the attention pattern at the layer where the SAE feature lives.
+   - Preceding-heavy → right-binding (modifies what came before).
+   - Following-heavy → left-binding (modifies what comes after).
+   - Self / diffuse → free / type-driven.
+   Use the median across the particle's top-1000 activating contexts.
+3. **Composition scope.** For binary / clause-scope particles, the
+   embedding half-life under steered vs. baseline at positions
+   t+1 … t+10. < 2 tokens: tight. 2–6: phrase. 7+: clause / sentence.
+
+Particles that don't admit a clean type (no dominant attention
+direction, diffuse scope) become **type-free** particles: documented
+as exceptions, combine permissively. Expect 1–3 of these.
+
+**Output:** `data/processed/core_particles_typed.json` — extends
+`core_particles.json` with:
+```json
+{
+  "operator_id": "UOP-014",
+  "type": {
+    "arity": "binary",
+    "binding": "right",
+    "scope": "phrase",
+    "half_life_tokens": 3
+  }
+}
+```
+
+### Stage 4 — Combinator-rule induction
+
+Find the small set of moves that govern how typed particles compose.
+
+1. Run Gemma 2 over a 100k-token natural-text sample. Record, per
+   token, which core particles are active above their steering
+   threshold.
+2. Extract sequences where ≥ 2 core particles co-fire within a
+   5-token window. Expect a few thousand such windows.
+3. For each (particle_A, particle_B) pair: compute relative-position
+   distribution (does A precede B, follow B, appear at variable
+   distance?).
+4. Cluster windows by (particle types involved, relative positions,
+   intervening token count). Each large cluster is a **construction**
+   — a stable multi-particle pattern.
+5. Read off the combinator rules implied by the constructions:
+   - "Right-binding particle X composes with following content word
+     Y; intermediate particles permitted up to depth 2."
+   - "Particles X and Z always co-occur in an (X … Z) frame; the
+     enclosed material is operand of both."
+   - …
+
+Target: a small CCG-style rule alphabet of 3–6 combinators. If
+construction clusters yield one rule (everything is "apply"), the
+grammar is purely typed and that's fine. If clusters yield 10+, the
+grammar has constructional idiosyncrasies — document each, flag for
+review.
+
+**Output:** `data/processed/combinator_rules.json`:
+```json
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "rule_id": "C1",
+      "name": "apply-right",
+      "pattern": "particle{binding=right, arity=binary} + content",
+      "instances_observed": 14210,
+      "example_window_ids": [...]
+    }
+  ]
+}
+```
+
+### Stage 5 — Promote the false lichens
+
+Path 5 logs pairs that pass synergy (its Stage 2) but fail joint
+steering (its Stage 3). The plan calls them "false lichens" and
+shelves them. They're not false — they're candidate **gating
+combinators**: pairs the model uses for internal selection, not for
+output transformation.
+
+For each false lichen:
+
+1. Pull the activations of both members on the 100k-token natural-
+   text sample from Stage 4.
+2. Test: does the joint activity of (i, j) predict which *other*
+   core particle fires in the following 1–5 tokens, controlling for
+   either member alone? Logistic regression on each downstream
+   particle as target.
+3. If yes → **gating combinator**: when both fire, the model
+   selects a specific downstream operator. Add to
+   `combinator_rules.json` with `source: false-lichen-promotion`
+   and the predicted downstream operator named in the rule.
+4. If no → leave shelved.
+
+Expect 5–20 false lichens; expect 1–5 to promote. Each promoted
+combinator is a meta-grammar rule about how particles condition
+each other.
+
+### Stage 6 — Emit the grammar spec
+
+Compile Stages 2–5 into a single human-readable + machine-readable
+spec:
+
+- `data/processed/grammar_spec.json` — full machine spec: core
+  particles + types + combinator rules + constructions + long tail.
+- `docs/grammar.md` — human-readable narrative drawing from the
+  spec. Section order: particle inventory → typing system →
+  combinator rules → worked examples (parse "word rules word
+  rules word word" end-to-end so a reader can see the system
+  work).
+
+The grammar spec is the conlang's **closed grammar at v1**: any
+utterance is parseable using only the rules in the spec, or it
+isn't well-formed. Closure is aspirational and bounded by the SAE
+basis; `POST-GLUE-SKETCH.md` queues the operators that may extend
+v2 once raw-residual and circuit-level discovery lands.
+
+### Parallelism
+
+- **Stage 1**: per-entry steering for unification signatures. Mostly
+  cached if Path 4 ran on the same prompt set. Embarrassingly
+  parallel across entries.
+- **Stage 2**: small numerical optimization, single CPU. Sweep over
+  (θ, ε) is a few dozen evaluations — trivial.
+- **Stage 3**: per-particle attention extraction. Reuses Path 2
+  Stage B's activation cache + corresponding attention-pattern
+  cache (add attention hooks to the cache sweep if not already
+  captured — cheap to redo). Embarrassingly parallel across
+  particles.
+- **Stage 4**: single forward-pass over 100k tokens (cheap on
+  Gemma 2 2B), then CPU clustering.
+- **Stage 5**: per-pair regression on cached activations; CPU.
+- **Stage 6**: writing.
+
+Total compute footprint: small. This path is mostly CPU; the only
+GPU work is Stage 3's attention extraction and Stage 4's natural-
+text forward pass, both single-pass.
+
+### Done criteria
+
+- Core inventory of 6–14 particles, each with a complete type
+  signature.
+- Combinator-rule alphabet of 3–6 rules.
+- ≥ 90% of the grammatical-coverage test set explained by the core
+  inventory (Stage 2).
+- ≥ 1 false lichen promoted to combinator rule (zero means the
+  false-lichen channel was empty signal — a finding, not a failure
+  of this path).
+- A `grammar_spec.json` and `docs/grammar.md` draft that together
+  let a reader parse "word rules word rules word word" without
+  further guidance.
+
+### Risks specific to Path 6
+
+- **Unification threshold is hand-tuned.** Set cosine at 0.55 and
+  you get one inventory; set it at 0.65 and you get a different
+  one. Mitigation: sweep θ jointly with Stage 2's ε; the data
+  picks the operating point, not the author.
+- **Core-inventory size depends on the coverage test set.** Path 2's
+  minimal pairs were built for direction-finding, not for
+  inventory-selection. They over-represent Tier 1. Mitigation:
+  re-weight the test set so each tier contributes proportionally
+  to its discovery yield.
+- **Typing assumes attention patterns are interpretable.** For some
+  particles, the relevant computation is distributed across heads
+  and no single head shows clean directional preference.
+  Mitigation: fall back to the steered-effect propagation profile
+  (Stage 3 item 3) and assign type-free status if even that's
+  diffuse.
+- **Combinator induction might find no structure.** If
+  constructions cluster into 50+ singleton patterns, the model
+  doesn't use particles compositionally — they're independent
+  modifiers. Mitigation: that's a real finding; ship a typed-but-
+  free grammar (one combinator, "apply") and document the result.
+- **The "false lichens as gating combinators" hypothesis is
+  testable but might be wrong.** Stage 5 has a sharp gate; if no
+  pairs pass, leave them shelved. Don't force-promote.
+- **Closure is aspirational.** v1 says "anything parseable with
+  these rules"; v2 will need extension when post-glue surfaces
+  operators that don't live in the SAE basis. Acknowledge the open
+  boundary in `grammar.md` itself.
