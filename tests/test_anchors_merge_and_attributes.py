@@ -2,8 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
 from conlang.anchors.attributes import (
     ATTRIBUTE_REGISTRY,
     build_attribute_anchor_table,
@@ -174,15 +172,12 @@ def test_each_bundle_has_cultural_attributes():
         )
 
 
-@pytest.mark.xfail(
-    reason="Registry currently at 14 bundles; gate activates once ≥40 land.",
-    strict=False,
-)
 def test_registry_covers_at_least_40_signed_concepts():
     """Coverage gate for the Phase 2 cutover precondition.
 
     The #11 hypothesis requires ≥40 of the 63 signed concepts to be
     bundled before flipping `embed_positions.py` to attribute-level.
+    Active gate as of Batch B3 (registry first reached 40 bundles).
     """
     assert len(ATTRIBUTE_REGISTRY) >= 40, (
         f"Registry has {len(ATTRIBUTE_REGISTRY)} bundles; "
