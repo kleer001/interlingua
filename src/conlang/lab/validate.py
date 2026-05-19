@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Phase 3 validation — Spearman ρ between decoder-space and stem-space distance.
 
 Sample ≥10k random feature pairs from the N=2000 substrate. For each pair,
@@ -11,7 +12,6 @@ Spec: `semanticphonology.md` §"Phase 3 — Validation".
 from __future__ import annotations
 
 import random
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -19,12 +19,12 @@ from scipy.spatial.distance import cosine
 from scipy.stats import spearmanr
 
 from conlang import PROCESSED_DIR
-from conlang.anchors.project import phonological_distance
 from conlang.interpolate import (
     _LEXICON_IPA_OVERRIDE,
     load_context,
     stem_for_position,
 )
+from conlang.lab.project import phonological_distance
 
 SUBSTRATE_PATH = PROCESSED_DIR / "substrate-v1-n2000.parquet"
 REPORT_PATH = PROCESSED_DIR / "phase3_spearman_report.txt"

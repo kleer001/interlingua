@@ -20,11 +20,12 @@ from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 
+from conlang.lab.schema import AnchorEntry, write_jsonl
+
 from . import ANCHOR_INTERIM, ANCHOR_RAW
 from .fetch_wiktionary import collect_unique_seeds, fetch_all
 from .parse_wiktionary import parse_seed_file
 from .run_seed import CSV_COLUMNS
-from .schema import AnchorEntry, write_jsonl
 
 
 def _write_csv(entries: list[AnchorEntry], path: Path) -> int:

@@ -2,7 +2,7 @@
 
 import pytest
 
-from conlang.anchors.phon_features import (
+from conlang.lab.phon_features import (
     feature_names,
     featurize_form,
     featurize_ipa,

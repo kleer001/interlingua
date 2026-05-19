@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from conlang.anchors.snapshot_phon_v1 import build_rows, write_parquet
+from conlang.lab.snapshot import build_rows, write_parquet
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:

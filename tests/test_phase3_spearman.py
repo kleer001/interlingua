@@ -12,11 +12,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "phase3_spearman.py"
+SCRIPT_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "conlang"
+    / "lab"
+    / "validate.py"
+)
 
 
 def _load_module():
-    spec = importlib.util.spec_from_file_location("phase3_spearman", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location("conlang.lab.validate", SCRIPT_PATH)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -57,7 +63,7 @@ def test_toy_pair_distance_pipeline():
     from scipy.spatial.distance import cosine
     from scipy.stats import spearmanr
 
-    from conlang.anchors.project import phonological_distance
+    from conlang.lab.project import phonological_distance
 
     # Five toy "stems" of varying similarity
     stems = ["tara", "tana", "kapa", "miru", "saba"]

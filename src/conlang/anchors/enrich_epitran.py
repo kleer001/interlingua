@@ -22,7 +22,7 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-from .schema import AnchorEntry, read_jsonl, write_jsonl
+from conlang.lab.schema import AnchorEntry, read_jsonl, write_jsonl
 
 # BCP-47 short code -> Epitran (ISO 639-3 + ISO 15924) code.
 # Built from the intersection of Epitran v1.35.1's bundled mappings and the

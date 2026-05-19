@@ -1,7 +1,7 @@
 """Epitran enrichment tests with a mock engine — no real models needed."""
 
 from conlang.anchors import enrich_epitran
-from conlang.anchors.schema import AnchorEntry
+from conlang.lab.schema import AnchorEntry
 
 
 class _FakeEngine:

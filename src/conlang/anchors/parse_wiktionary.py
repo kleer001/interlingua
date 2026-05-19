@@ -25,8 +25,8 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup, Tag
 
-from .concepts import CONCEPTS, ConceptDef
-from .schema import AnchorEntry
+from conlang.lab.concepts import CONCEPTS, ConceptDef
+from conlang.lab.schema import AnchorEntry
 
 _STOP_WORDS: frozenset[str] = frozenset(
     {

@@ -150,7 +150,7 @@ def apply_lookup(
 
     Returns (entries_out, stats).
     """
-    from .schema import AnchorEntry
+    from conlang.lab.schema import AnchorEntry
 
     stats = {"filled": 0, "kept": 0, "no_match": 0, "skipped_no_form": 0}
     out: list[AnchorEntry] = []

@@ -2,7 +2,7 @@
 
 import pytest
 
-from conlang.anchors.inventory import (
+from conlang.lab.inventory import (
     ALL_PHONEMES,
     CONSONANTS,
     VOWELS,
@@ -10,7 +10,7 @@ from conlang.anchors.inventory import (
     is_vowel,
     phoneme_features,
 )
-from conlang.anchors.project import phonological_distance, project_ipa, project_segment
+from conlang.lab.project import phonological_distance, project_ipa, project_segment
 
 panphon = pytest.importorskip("panphon")
 
@@ -111,7 +111,7 @@ def test_japanese_wan_wan_round_trips():
 
 def test_projection_length_matches_segment_count():
     """Every IPA segment produces exactly one inventory phoneme."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     for ipa in ["/muː/", "/bʌz/", "/oink/", "/krjxrju/"]:
         n_segs = len(featurize_ipa(ipa))

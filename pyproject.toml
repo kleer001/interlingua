@@ -32,6 +32,16 @@ anchors = [
   "lxml",
   "epitran",
 ]
+lab = [
+  "torch",
+  "transformers",
+  "numpy",
+  "pyarrow",
+  "scipy",
+  "pandas",
+  "panphon",
+  "matplotlib",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/conlang"]

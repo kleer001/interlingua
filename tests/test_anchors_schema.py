@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from conlang.anchors.schema import AnchorEntry, read_jsonl, write_jsonl
+from conlang.lab.schema import AnchorEntry, read_jsonl, write_jsonl
 
 
 def _sample(**over) -> AnchorEntry:

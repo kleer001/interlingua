@@ -17,8 +17,9 @@ from pathlib import Path
 
 import httpx
 
+from conlang.lab.concepts import CONCEPTS
+
 from . import ANCHOR_RAW
-from .concepts import CONCEPTS
 
 WIKTIONARY_API = "https://en.wiktionary.org/w/api.php"
 USER_AGENT = (

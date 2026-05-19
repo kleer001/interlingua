@@ -2,8 +2,8 @@
 
 import pytest
 
-from conlang.anchors.schema import AnchorEntry
-from conlang.anchors.signatures import (
+from conlang.lab.schema import AnchorEntry
+from conlang.lab.signatures import (
     ConceptSignature,
     build_all_signatures,
     signature_for_concept,

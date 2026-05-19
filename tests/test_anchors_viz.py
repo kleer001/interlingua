@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from conlang.anchors.schema import AnchorEntry
+from conlang.lab.schema import AnchorEntry
 
 pytest.importorskip("panphon")
 
@@ -30,8 +30,8 @@ def _entry(
 
 
 def test_viz_renders_without_error(tmp_path: Path):
-    from conlang.anchors.signatures import build_all_signatures
-    from conlang.anchors.viz import write_browser
+    from conlang.lab.signatures import build_all_signatures
+    from conlang.lab.viz import write_browser
 
     rows = [
         _entry(concept="cow_mooing", lang_code="en", ipa="/muː/"),

@@ -26,9 +26,10 @@ from pathlib import Path
 
 import httpx
 
+from conlang.lab.schema import read_jsonl
+
 from . import ANCHOR_PROCESSED, ANCHOR_RAW
 from .enrich_epitran import EPITRAN_CODE_MAP
-from .schema import read_jsonl
 
 WIKTIONARY_API = "https://en.wiktionary.org/w/api.php"
 USER_AGENT = (

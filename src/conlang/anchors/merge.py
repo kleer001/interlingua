@@ -26,12 +26,13 @@ from collections.abc import Iterable
 from dataclasses import asdict
 from pathlib import Path
 
+from conlang.lab.concepts import canonical_slug
+from conlang.lab.schema import AnchorEntry, read_jsonl, write_jsonl
+
 from . import ANCHOR_INTERIM, ANCHOR_PROCESSED, ANCHOR_RAW
-from .concepts import canonical_slug
 from .enrich_epitran import run as run_enrich
 from .parse_wiktionary_ipa import apply_lookup, build_ipa_lookup
 from .run_seed import CSV_COLUMNS
-from .schema import AnchorEntry, read_jsonl, write_jsonl
 
 
 def _canonicalize(entry: AnchorEntry) -> AnchorEntry | None:
@@ -116,7 +117,7 @@ def synthesize_english_anchors(
     IPA and projection are filled later by the Wiktionary-form-page lookup
     and the projection step.
     """
-    from .concepts import CONCEPTS
+    from conlang.lab.concepts import CONCEPTS
 
     have_en = {e.concept for e in entries if e.language_code == "en" and e.orthography}
     today = entries[0].captured_at if entries else "2026-05-16"
@@ -224,7 +225,7 @@ def run(
     # Project every IPA row into the 10C/5V inventory. Self-contained
     # representation that downstream Stage-6 reads as the matrix.
     enriched = read_jsonl(v1_jsonl)
-    from .project import project_ipa
+    from conlang.lab.project import project_ipa
 
     n_proj = 0
     for e in enriched:

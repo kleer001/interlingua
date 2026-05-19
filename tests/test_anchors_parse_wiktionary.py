@@ -1,6 +1,6 @@
 """Parser tests on synthetic Wiktionary HTML."""
 
-from conlang.anchors.concepts import ConceptDef
+from conlang.lab.concepts import ConceptDef
 from conlang.anchors.parse_wiktionary import parse_seed_html
 
 _DOG_BARK_PAGE = """

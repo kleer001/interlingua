@@ -34,7 +34,7 @@ from pathlib import Path
 import numpy as np
 
 from . import PROCESSED_DIR
-from .anchors.phon_features import featurize_ipa
+from .lab.phon_features import featurize_ipa
 from .phonology import SINGLE_CONSONANTS, VOWELS, syllabify
 
 DEFAULT_SUBSTRATE = PROCESSED_DIR / "substrate-v1-n2000.parquet"

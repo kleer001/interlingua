@@ -32,8 +32,9 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
+from conlang.lab.schema import AnchorEntry
+
 from .lang_codes import code_for, normalize_language_name
-from .schema import AnchorEntry
 
 CONCEPT_SLUG_RE = re.compile(r"[^a-z0-9]+")
 

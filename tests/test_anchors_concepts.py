@@ -2,7 +2,7 @@
 
 from collections import Counter
 
-from conlang.anchors.concepts import (
+from conlang.lab.concepts import (
     ALIAS_TO_SLUG,
     BY_SLUG,
     CONCEPTS,

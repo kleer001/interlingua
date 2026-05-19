@@ -9,7 +9,7 @@ from conlang.anchors.parse_wiktionary_ipa import (
     build_ipa_lookup,
     parse_form_html,
 )
-from conlang.anchors.schema import AnchorEntry
+from conlang.lab.schema import AnchorEntry
 
 pytest.importorskip("panphon")
 

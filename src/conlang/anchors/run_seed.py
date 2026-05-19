@@ -22,10 +22,11 @@ from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 
+from conlang.lab.schema import AnchorEntry, write_jsonl
+
 from . import ANCHOR_PROCESSED, ANCHOR_RAW
 from .fetch_wikipedia import SEED_PAGES, fetch_page
 from .parse_wikipedia import parse_file
-from .schema import AnchorEntry, write_jsonl
 
 CSV_COLUMNS: tuple[str, ...] = (
     "concept",

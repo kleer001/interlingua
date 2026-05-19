@@ -1,0 +1,26 @@
+{
+  "source_of_truth": "semanticphonology.md §3",
+  "thresholds": {
+    "cutover": 0.15,
+    "strong_claim": 0.20
+  },
+  "fixed_params": {
+    "substrate_size": 2000,
+    "kernel": "needleman-wunsch",
+    "pooling": "gemma-2-2b residual mean-pool",
+    "n_pairs": 10000,
+    "seed": 0
+  },
+  "measurements": [
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0] (\"hiss\")",      "layer": 13, "rho": 0.0365, "p_value": 2.65e-4, "note": "A/B re-run after embed-positions refactor. Highest on record."},
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0]",                 "layer": 21, "rho": 0.0348, "p_value": 4.92e-4, "note": "Layer-sweep: ties layer 13 within noise."},
+    {"date": "2026-05-18", "anchors": "1574 attribute", "embed": "f\"{slug} ({seed}) :: {attr}\"",   "layer": 13, "rho": 0.0292, "p_value": 3.46e-3, "note": "Slug+seed format. Recovers 64% of seed-removal loss but still 20% below concept-level."},
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0]",                 "layer":  9, "rho": 0.0197, "p_value": 4.86e-2, "note": "Layer-sweep: early-mid carries less semantic signal."},
+    {"date": "2026-05-18", "anchors": "1574 attribute", "embed": "f\"{slug} :: {attr}\"",            "layer": 13, "rho": 0.0178, "p_value": 7.62e-2, "note": "Granularity hypothesis falsified — ρ dropped with 25× more anchors."},
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0]",                 "layer": 25, "rho": 0.0174, "p_value": 8.18e-2, "note": "Layer-sweep: very late layer drops back."},
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0]",                 "layer": 17, "rho": 0.0154, "p_value": 1.24e-1, "note": "Layer-sweep: weak."},
+    {"date": "2026-05-18", "anchors": "63 concept",     "embed": "english_seeds[0]",                 "layer":  5, "rho": 0.0079, "p_value": 4.30e-1, "note": "Layer-sweep: early layers near-zero, as expected."}
+  ],
+  "verdict": "falsified",
+  "best_rho": 0.0365
+}

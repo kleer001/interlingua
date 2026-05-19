@@ -87,7 +87,7 @@ def test_neighbor_weights_handles_top_k_larger_than_n_anchors():
 
 def test_mix_signatures_single_anchor_recovers_segments():
     """One anchor with weight 1.0 — output should equal that anchor's panphon features."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     segs = featurize_ipa("paka")
     assert len(segs) == 4
@@ -108,7 +108,7 @@ def test_mix_signatures_zero_pads_shorter_anchors():
     out_mixed = mix_signatures([(0, 0.5), (1, 0.5)], ["pa", "paka"])
     # at position 0/1 both anchors contribute; at 2 only "paka" contributes
     # so position 2 should equal "paka"[2]'s features
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     expected_pos2 = featurize_ipa("paka")[2]
     assert out_mixed[2] == pytest.approx([float(x) for x in expected_pos2])
@@ -123,7 +123,7 @@ def test_mix_signatures_empty_anchors_returns_empty():
 
 def test_discretize_simple_cv_passes_through():
     """A signature that already discretizes to a valid (C)V should not be modified much."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     segs = [list(s) for s in featurize_ipa("pa")]
     build = discretize_with_phonotactics(segs)
@@ -134,7 +134,7 @@ def test_discretize_simple_cv_passes_through():
 
 def test_discretize_forces_cv_when_two_consonants_adjacent():
     """Two consonant-shaped segments in a row should not produce a CC cluster."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     # "ks" featurizes as two consonants — gate should retry pos 1 against vowels
     segs = [list(s) for s in featurize_ipa("ks")]
@@ -147,7 +147,7 @@ def test_discretize_forces_cv_when_two_consonants_adjacent():
 
 def test_discretize_drops_trailing_consonant():
     """No codas allowed — a stem-final consonant must be dropped."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     segs = [list(s) for s in featurize_ipa("pak")]
     build = discretize_with_phonotactics(segs)
@@ -158,7 +158,7 @@ def test_discretize_drops_trailing_consonant():
 
 def test_discretize_pads_short_stems_to_two_syllables():
     """A single segment input should still produce ≥ 2 syllables."""
-    from conlang.anchors.phon_features import featurize_ipa
+    from conlang.lab.phon_features import featurize_ipa
 
     segs = [list(s) for s in featurize_ipa("p")]
     build = discretize_with_phonotactics(segs)

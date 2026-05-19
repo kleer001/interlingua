@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from conlang.anchors.attributes import (
+from conlang.anchors.merge import _canonicalize, merge_streams, synthesize_english_anchors
+from conlang.lab.attributes import (
     ATTRIBUTE_REGISTRY,
     build_attribute_anchor_table,
     signature_for,
 )
-from conlang.anchors.merge import _canonicalize, merge_streams, synthesize_english_anchors
-from conlang.anchors.schema import AnchorEntry
+from conlang.lab.schema import AnchorEntry
 
 
 def _entry(**over) -> AnchorEntry:
@@ -107,7 +107,7 @@ def test_synthesize_english_skips_concept_already_covered():
 
 
 def test_attribute_registry_concepts_exist_in_inventory():
-    from conlang.anchors.concepts import BY_SLUG
+    from conlang.lab.concepts import BY_SLUG
 
     for slug, bundle in ATTRIBUTE_REGISTRY.items():
         # The bundle's concept field must be in the inventory.

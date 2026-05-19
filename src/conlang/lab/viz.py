@@ -16,7 +16,8 @@ import html
 from collections import defaultdict
 from pathlib import Path
 
-from . import ANCHOR_PROCESSED
+from conlang.anchors import ANCHOR_PROCESSED
+
 from .concepts import BY_SLUG
 from .schema import AnchorEntry, read_jsonl
 from .signatures import ConceptSignature, build_all_signatures
