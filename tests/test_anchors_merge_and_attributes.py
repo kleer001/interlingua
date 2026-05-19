@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import pytest
+
 from conlang.anchors.attributes import (
     ATTRIBUTE_REGISTRY,
     build_attribute_anchor_table,
@@ -143,3 +145,46 @@ def test_build_attribute_anchor_table_yields_one_row_per_attribute(tmp_path: Pat
     universal = [r for r in snake if not r.cultural]
     assert len(cultural) >= 1
     assert len(universal) >= 1
+
+
+def test_minimum_attribute_count_per_bundle():
+    """Every bundle must carry ≥12 attributes (perceptual + affect combined).
+
+    Floor protects ρ density: a stub bundle with only 4-5 attrs would land
+    nearly all probe mass at one residual-space point, undoing the
+    attribute-level density gain that motivates the cutover.
+    """
+    for slug, bundle in ATTRIBUTE_REGISTRY.items():
+        assert len(bundle.attributes) >= 12, (
+            f"Bundle {slug!r} has only {len(bundle.attributes)} attributes; "
+            f"floor is 12 (perceptual + affect combined)."
+        )
+
+
+def test_each_bundle_has_cultural_attributes():
+    """Every bundle must carry ≥3 cultural attributes.
+
+    Cross-cultural / contradictory valences are the philosophical lean
+    that makes anchors richer than literal sound-feature tags.
+    """
+    for slug, bundle in ATTRIBUTE_REGISTRY.items():
+        assert len(bundle.cultural_attributes) >= 3, (
+            f"Bundle {slug!r} has only {len(bundle.cultural_attributes)} "
+            f"cultural attributes; floor is 3."
+        )
+
+
+@pytest.mark.xfail(
+    reason="Registry currently at 14 bundles; gate activates once ≥40 land.",
+    strict=False,
+)
+def test_registry_covers_at_least_40_signed_concepts():
+    """Coverage gate for the Phase 2 cutover precondition.
+
+    The #11 hypothesis requires ≥40 of the 63 signed concepts to be
+    bundled before flipping `embed_positions.py` to attribute-level.
+    """
+    assert len(ATTRIBUTE_REGISTRY) >= 40, (
+        f"Registry has {len(ATTRIBUTE_REGISTRY)} bundles; "
+        f"≥40 required to flip embed_positions to attribute-level."
+    )
