@@ -240,6 +240,45 @@ Spearman → interpolation isn't preserving distance; low anchor recall
 itself is too sparse and we need more concepts in `concepts.py`
 before the cutover lands.
 
+#### Phase 3 measurements log
+
+Recorded as they land, newest first. Each row: substrate, kernel,
+anchor regime, embed text, ρ on 10k random feature-pairs (seed=0), and
+the directional take-away.
+
+| Date | Substrate | Kernel | Anchors | Embed text | ρ | p | Note |
+|---|---|---|---|---|---|---|---|
+| 2026-05-18 | N=2000 | NW | 1574 attribute (63 concepts × ~25 attrs) | `f"{slug} :: {attribute}"` | **0.0178** | 7.62e-2 | Granularity hypothesis falsified. ρ *dropped* with 25× more anchors. |
+| 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` ("hiss") | **0.0365** | 2.65e-4 | A/B re-run after embed-positions refactor; matches prior NW measurement. Confirms baseline reproduces. |
+| 2026-05-18 | N=2000 | NW | 63 concept | `english_seeds[0]` | 0.0365 | 2.65e-4 | First NW measurement after upgrading `phonological_distance()` from position-aligned to Needleman-Wunsch. |
+| 2026-05-17 | N=2000 | position-aligned | 63 concept | `english_seeds[0]` | 0.0297 | 2.94e-3 | First Phase-3 measurement. |
+
+**Interpretation as of 2026-05-18.** All four measurements sit far
+below the 0.15 cutover threshold and far below §5's 0.2 "consonant
+directionality is real" threshold. The §5 "open questions" §
+*Consonant directionality is the load-bearing claim* explicitly
+anticipated this outcome: if ρ < 0.2, consonant features alone are
+not enough.
+
+The 1574-anchor attribute-level run is the critical negative:
+**granularity per se is not the bottleneck.** Going from 63 to 1574
+anchors (25×) *decreased* ρ. The only variable that changed was the
+embed text — from iconic seed (`"hiss"`) to slug-prefixed abstract
+attribute (`"snake_hissing :: evil-bringer-abrahamic"`). The iconic
+phonological signal in the seed string was doing real work, and the
+attribute regime traded it for slug+attribute abstraction. Whatever
+modest correlation existed at 0.0365 likely *was* the seed's iconicity
+leaking through Gemma's residual.
+
+Next-rung experiments queued (per §5, not §3):
+1. Reinstate the iconic seed inside the attribute embed text:
+   `f"{slug} ({seed}) :: {attribute}"`. Tests whether seed-iconicity
+   was the swing factor distinct from anchor granularity.
+2. Layer-sweep at concept-level. Currently embedding from layer-13
+   (output of block 12). Earlier layers carry more lexical/phonological
+   info; later layers more abstract semantics. If no layer breaks
+   ρ ≥ 0.10, the cutover hypothesis is empirically dead at 2304-d.
+
 ---
 
 ## 4. What stays the same
