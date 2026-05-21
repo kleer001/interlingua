@@ -557,6 +557,48 @@ Across all tiers:
 
 ---
 
+### Pilot result (2026-05-21) — past tense, single category
+
+End-to-end Stage A→B→C→D→E run on past tense (Tier 1, English-shaped)
+on Gemma 2 2B layer 12, gemmascope-res-16k SAE. Pilot script:
+`scripts/path2_pilot_tense.py` (~6 s wall clock on RTX 3090).
+
+| Pool method | Held-out acc (N=800) | top_3_mass | L0 (>1% max) | Verdict |
+| ----------- | -------------------- | ---------- | ------------ | ------- |
+| mean-pool   | 0.997                | 0.0052     | 12583        | DIFFUSE |
+| last-token  | 0.931                | 0.0058     | 12322        | DIFFUSE |
+
+Sample-size sweep at N ∈ {200, 400, 800}: direction cosine ≥ 0.99 vs the
+N=200 baseline; top-10 feature overlap 10/10 (mean) and 9–10/10 (last).
+4× more data gives an essentially identical direction — the
+diffuse-vs-sparse character is a property of the SAE basis, not of N.
+
+The DIFFUSE verdict is correct and interpretable. Five past-like SAE
+features (fid 13390, 12506, 3967, 785, 3976) fire on past-form verbs
+and past auxiliaries (`was`, `did`); four present-like SAE features
+(fid 15888, 11758, 10018, 11118) fire on present-form verbs and the
+present auxiliaries `has`/`have`. Tense is encoded as **two feature
+populations**, not a single sparse feature — exactly the geometry the
+diffuse/affix bucket anticipates.
+
+GPT-4o-mini auto-interp labels are content-biased and miss this
+grammatical pattern (labelling fid=13390 "recurring actions or events"
+when its top contexts are simply past-form verbs). A human-eyeball
+pass on actual top activations is needed to recover grammatical
+structure, mirroring the Path 1 step 4-5 lesson.
+
+Full writeup with feature tables and methodology lessons:
+`glue-path2-pilot.md`.
+
+**Methodology note.** The current sparsity gate (`top_3_mass > 0.7
+AND L0 < 10`) may be too strict for grammatical operators in 16k SAEs
+— non-orthogonal decoder vectors raise the L1 noise floor so much
+that no real direction can hit 0.7. A population-check gate ("are the
+top-K features by |c|, for K matched to expected operator dimension,
+category-aligned?") may complement the concentration gate.
+
+---
+
 ## Path 3 — Attention-SAE re-extraction (optional)
 
 Gemma Scope ships **attention-out SAEs** alongside residual SAEs.
