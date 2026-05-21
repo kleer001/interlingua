@@ -195,6 +195,25 @@ A `function_lexicon.json` with ≥ 30 high-confidence entries means the
 audit alone gave you a usable function sub-lexicon. <10 entries means
 glue mostly isn't in the current 1000-node slice; lean on Path 2.
 
+### Result (2026-05-21)
+
+Path 1 ran on 2000-feature substrate. Regex + entropy pass surfaced
+95 candidates (0 high, 4 medium, 91 low). Step 4-5 Neuronpedia
+eyeball on the 4 medium-tier candidates:
+
+| fid  | regex tag              | verdict | reason                                              |
+| ---- | ---------------------- | ------- | --------------------------------------------------- |
+| 1373 | conjunction / additive | confirm | `and` peaks across diverse domains — pure glue.     |
+| 190  | tense / future         | drop    | snake_case identifier fragments, not tense.         |
+| 1745 | question / interrog.   | drop    | markup delimiters in tabular text, not interrog.    |
+| 1802 | number (plural)        | drop    | lexical collective nouns, not grammatical plural.   |
+
+Final: **1 high-confidence entry**. Falls in the "<10 → lean on
+Path 2" bucket. Rationales + cached Neuronpedia activations live in
+`data/processed/function_lexicon.json` (`audit_passes[0]` and the
+`human_audit` field on each reviewed entry) and
+`data/interim/neuronpedia/`.
+
 ---
 
 ## Category roster — beyond English-shaped
