@@ -1,11 +1,30 @@
-"""Generate the three matplotlib PNGs that illustrate Phase 3 results.
+"""Generate matplotlib PNGs that illustrate the Phase 3 result.
 
-Writes to docs/static/phase3/:
-- layer_sweep.png         — ρ vs Gemma layer, concept-level seed[0]
-- embed_variants.png      — ρ for three embed-text regimes at layer 13
-- nw_alignment_schematic.png — pedagogical NW alignment of "woof" vs "bark"
+Four plots, written to docs/static/phase3/:
 
-Data source: the ρ table in semanticphonology.md §3 (copied here verbatim).
+- two_populations.png — both populations on the same axes. The 63
+  iconic anchors live in a tiny cluster near the bottom (the model
+  considers them mutually close). The 2000 substrate meaning-clusters
+  live a long way up, in a different region of the model's geometry.
+  This is the *why* of the failure: the anchors aren't anywhere near
+  the meanings they were supposed to anchor.
+
+- anchor_pairs_scatter.png — zoomed view of the iconic-anchor pairs
+  only, with a few named callouts. There is *some* sound-meaning
+  correlation among iconic words themselves.
+
+- substrate_pairs_scatter.png — zoomed view of the 10,000 random
+  substrate pairs. The cloud is round. This is the data behind the
+  falsified headline.
+
+- shape_overlay.png — both populations rescaled into a common
+  [0,1] square and overlaid. Tests the intuition that the two clouds
+  "share a shape." They share a sampling fan but only one has the
+  diagonal climb that would mean sound and meaning track each other.
+
+Reads:
+- src/conlang/lab/results/anchor_pairs.parquet
+- /media/menser/fauna/interlingua/data/processed/phase3_spearman_pairs.parquet
 """
 
 from __future__ import annotations
@@ -13,182 +32,223 @@ from __future__ import annotations
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+import pandas as pd
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "docs" / "static" / "phase3"
+ANCHOR_PAIRS = (
+    Path(__file__).resolve().parents[1]
+    / "src"
+    / "conlang"
+    / "lab"
+    / "results"
+    / "anchor_pairs.parquet"
+)
+SUBSTRATE_PAIRS = Path(
+    "/media/menser/fauna/interlingua/data/processed/phase3_spearman_pairs.parquet"
+)
+SIGNED_PARQUET = Path("/media/menser/fauna/interlingua/data/processed/anchors-v1.parquet")
 
-CUTOVER_THRESHOLD = 0.15
-STRONG_CLAIM_THRESHOLD = 0.20
+ANCHOR_COLOR = "#c0392b"
+SUBSTRATE_COLOR = "#4a6fa5"
 
-LAYER_SWEEP = [
-    (5, 0.0079),
-    (9, 0.0197),
-    (13, 0.0365),
-    (17, 0.0154),
-    (21, 0.0348),
-    (25, 0.0174),
-]
-
-EMBED_VARIANTS = [
-    ("63 concept\nseed[0]", 0.0365),
-    ("1574 attribute\nslug + seed + attr", 0.0292),
-    ("1574 attribute\nslug + attr only", 0.0178),
-]
+X_LABEL = "how different the two words sound"
+Y_LABEL = "how different the model thinks they are"
 
 
-def plot_layer_sweep(out_path: Path) -> None:
-    layers, rhos = zip(*LAYER_SWEEP, strict=True)
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    bars = ax.bar(
-        [str(layer) for layer in layers],
-        rhos,
-        color="#4a6fa5",
-        edgecolor="#22384f",
+def _signed_concepts() -> set[str]:
+    return set(pd.read_parquet(SIGNED_PARQUET)["concept"])
+
+
+def _load_anchor_signed() -> pd.DataFrame:
+    df = pd.read_parquet(ANCHOR_PAIRS)
+    signed = _signed_concepts()
+    return df[df.a.isin(signed) & df.b.isin(signed)].copy()
+
+
+def plot_two_populations(out_path: Path) -> None:
+    anchor = _load_anchor_signed()
+    sub = pd.read_parquet(SUBSTRATE_PAIRS)
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+
+    ax.scatter(
+        sub.phonological_distance,
+        sub.cosine_distance,
+        s=3,
+        color=SUBSTRATE_COLOR,
+        alpha=0.10,
+        edgecolors="none",
+        zorder=2,
+    )
+    ax.scatter(
+        anchor.phon,
+        anchor.cos,
+        s=18,
+        color=ANCHOR_COLOR,
+        alpha=0.75,
+        edgecolors="none",
         zorder=3,
     )
-    for rect, rho in zip(bars, rhos, strict=True):
-        ax.text(
-            rect.get_x() + rect.get_width() / 2,
-            rect.get_height() + 0.004,
-            f"{rho:.4f}",
-            ha="center",
-            va="bottom",
-            fontsize=9,
-        )
 
-    ax.axhline(
-        CUTOVER_THRESHOLD,
-        color="#c0392b",
-        linestyle="--",
-        linewidth=1.4,
-        label=f"cutover threshold ρ ≥ {CUTOVER_THRESHOLD}",
-        zorder=2,
+    # Direct annotations on the plot — no legend box that covers data.
+    ax.annotate(
+        "the 2000 meaning-clusters\nlive up here",
+        xy=(11.5, 1.00),
+        xytext=(11.5, 0.78),
+        ha="right",
+        fontsize=11,
+        color=SUBSTRATE_COLOR,
+        arrowprops=dict(arrowstyle="->", color=SUBSTRATE_COLOR, lw=1.2, alpha=0.7),
     )
-    ax.axhline(
-        STRONG_CLAIM_THRESHOLD,
-        color="#7d3c98",
-        linestyle=":",
-        linewidth=1.4,
-        label=f"§5 strong-claim threshold ρ ≥ {STRONG_CLAIM_THRESHOLD}",
-        zorder=2,
+    ax.annotate(
+        "the 63 iconic anchors\nlive down here",
+        xy=(11.5, 0.005),
+        xytext=(11.5, 0.20),
+        ha="right",
+        fontsize=11,
+        color=ANCHOR_COLOR,
+        arrowprops=dict(arrowstyle="->", color=ANCHOR_COLOR, lw=1.2, alpha=0.7),
     )
 
-    ax.set_ylim(0, max(STRONG_CLAIM_THRESHOLD, max(rhos)) * 1.4)
-    ax.set_xlabel("Gemma 2 (2B) layer index")
-    ax.set_ylabel("Spearman ρ")
-    ax.set_title("Phase 3 layer sweep — 63 concept anchors, seed[0] embed")
-    ax.grid(axis="y", alpha=0.3, zorder=0)
-    ax.legend(loc="upper right", framealpha=0.95)
+    ax.set_xlabel(X_LABEL)
+    ax.set_ylabel(Y_LABEL)
+    ax.set_title("Two populations in the model's mind, on the same axes")
+    ax.grid(alpha=0.25, zorder=0)
+
     fig.tight_layout()
     fig.savefig(out_path, dpi=140)
     plt.close(fig)
 
 
-def plot_embed_variants(out_path: Path) -> None:
-    labels, rhos = zip(*EMBED_VARIANTS, strict=True)
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    bars = ax.bar(
-        labels,
-        rhos,
-        color=["#4a6fa5", "#5b9bd5", "#9dc3e6"],
-        edgecolor="#22384f",
-        zorder=3,
-    )
-    for rect, rho in zip(bars, rhos, strict=True):
-        ax.text(
-            rect.get_x() + rect.get_width() / 2,
-            rect.get_height() + 0.004,
-            f"{rho:.4f}",
-            ha="center",
-            va="bottom",
-            fontsize=10,
-        )
+def plot_anchor_pairs(out_path: Path) -> None:
+    df = _load_anchor_signed()
 
-    ax.axhline(
-        CUTOVER_THRESHOLD,
-        color="#c0392b",
-        linestyle="--",
-        linewidth=1.4,
-        label=f"cutover threshold ρ ≥ {CUTOVER_THRESHOLD}",
+    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+
+    ax.scatter(
+        df.phon,
+        df.cos,
+        s=14,
+        color=ANCHOR_COLOR,
+        alpha=0.45,
+        edgecolors="none",
         zorder=2,
     )
 
-    ax.set_ylim(0, CUTOVER_THRESHOLD * 1.4)
-    ax.set_ylabel("Spearman ρ")
-    ax.set_title("Embed-text regime at Gemma layer 13")
-    ax.grid(axis="y", alpha=0.3, zorder=0)
-    ax.legend(loc="upper right", framealpha=0.95)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=140)
-    plt.close(fig)
-
-
-def plot_nw_alignment(out_path: Path) -> None:
-    """Pedagogical schematic: woof /wʊf/ vs bark /bɑɹk/ NW alignment.
-
-    Optimal alignment (illustrative, not from the actual NW kernel):
-      w  ʊ  -  f
-      b  ɑ  ɹ  k
-    Three substitutions + one gap.
-    """
-    top = ["w", "ʊ", "—", "f"]
-    bottom = ["b", "ɑ", "ɹ", "k"]
-    ops = ["sub", "sub", "gap", "sub"]
-    op_colors = {"sub": "#e67e22", "gap": "#7f8c8d", "match": "#27ae60"}
-
-    fig, ax = plt.subplots(figsize=(7, 3.5))
-    ax.set_xlim(0, len(top))
-    ax.set_ylim(0, 4)
-    ax.axis("off")
-
-    cell_w = 0.9
-    for i, (t, b, op) in enumerate(zip(top, bottom, ops, strict=True)):
-        x = i + 0.5
-        bg_color = op_colors[op]
-        ax.add_patch(
-            mpatches.Rectangle(
-                (i + 0.05, 2.1),
-                cell_w,
-                0.9,
-                facecolor=bg_color,
-                alpha=0.18,
-                edgecolor=bg_color,
-            )
-        )
-        ax.add_patch(
-            mpatches.Rectangle(
-                (i + 0.05, 1.0),
-                cell_w,
-                0.9,
-                facecolor=bg_color,
-                alpha=0.18,
-                edgecolor=bg_color,
-            )
-        )
-        ax.text(x, 2.55, t, ha="center", va="center", fontsize=22, family="serif")
-        ax.text(x, 1.45, b, ha="center", va="center", fontsize=22, family="serif")
-        ax.text(x, 0.55, op, ha="center", va="center", fontsize=10, color=bg_color)
-
-    ax.text(-0.15, 2.55, "woof", ha="right", va="center", fontsize=12, style="italic")
-    ax.text(-0.15, 1.45, "bark", ha="right", va="center", fontsize=12, style="italic")
-    ax.set_title(
-        "Needleman-Wunsch alignment, illustrative — /wʊf/ vs /bɑɹk/",
-        fontsize=12,
-    )
-
-    legend_handles = [
-        mpatches.Patch(color=op_colors["sub"], alpha=0.6, label="substitute"),
-        mpatches.Patch(color=op_colors["gap"], alpha=0.6, label="insert gap"),
-        mpatches.Patch(color=op_colors["match"], alpha=0.6, label="match"),
+    callouts = [
+        ("snake_hissing", "cat_hissing"),
+        ("cow_mooing", "sheep_bleating"),
+        ("bee_buzzing", "snake_hissing"),
+        ("cat_meowing", "cat_purring"),
+        ("thunder", "bell_ringing"),
     ]
-    ax.legend(
-        handles=legend_handles,
-        loc="lower center",
-        bbox_to_anchor=(0.5, -0.05),
-        ncol=3,
-        frameon=False,
+    for a, b in callouts:
+        row = df[((df.a == a) & (df.b == b)) | ((df.a == b) & (df.b == a))]
+        if len(row) == 0:
+            continue
+        r = row.iloc[0]
+        label = f"{r.seed_a} · {r.seed_b}"
+        ax.scatter(r.phon, r.cos, s=70, color="#7b1d10", edgecolor="black", zorder=4)
+        ax.annotate(
+            label,
+            (r.phon, r.cos),
+            xytext=(8, 6),
+            textcoords="offset points",
+            fontsize=9,
+            color="#3a0a04",
+            zorder=5,
+        )
+
+    ax.set_xlabel(X_LABEL)
+    ax.set_ylabel(Y_LABEL)
+    ax.set_title("Just the iconic anchors (zoomed in) — some loose trend")
+    ax.grid(alpha=0.25, zorder=0)
+    ax.set_xlim(left=-0.3)
+    ax.set_ylim(bottom=-0.001)
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+
+
+def plot_substrate_pairs(out_path: Path) -> None:
+    df = pd.read_parquet(SUBSTRATE_PAIRS)
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+
+    ax.scatter(
+        df.phonological_distance,
+        df.cosine_distance,
+        s=4,
+        color=SUBSTRATE_COLOR,
+        alpha=0.15,
+        edgecolors="none",
+        zorder=2,
     )
 
+    ax.set_xlabel(X_LABEL)
+    ax.set_ylabel(Y_LABEL)
+    ax.set_title("Just the meaning-clusters (zoomed in) — no trend at all")
+    ax.grid(alpha=0.25, zorder=0)
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=140)
+    plt.close(fig)
+
+
+def plot_shape_overlay(out_path: Path) -> None:
+    """Rescale both populations to [0, 1] in both axes and overlay.
+
+    Tests the visual intuition that the two clouds 'share a shape.'
+    They share the sampling fan (more dots on the right than the left)
+    but only the anchor cloud has the diagonal climb that Spearman
+    measures.
+    """
+    from scipy.stats import spearmanr
+
+    anchor = _load_anchor_signed()
+    sub = pd.read_parquet(SUBSTRATE_PAIRS)
+
+    def rescale(x):
+        import numpy as np
+
+        x = np.asarray(x, dtype=float)
+        return (x - x.min()) / (x.max() - x.min())
+
+    ax_r = rescale(anchor.phon)
+    ay_r = rescale(anchor.cos)
+    sx_r = rescale(sub.phonological_distance)
+    sy_r = rescale(sub.cosine_distance)
+
+    rho_a, _ = spearmanr(anchor.phon, anchor.cos)
+    rho_s, _ = spearmanr(sub.phonological_distance, sub.cosine_distance)
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.5))
+    ax.scatter(
+        sx_r,
+        sy_r,
+        s=4,
+        color=SUBSTRATE_COLOR,
+        alpha=0.10,
+        edgecolors="none",
+        label=f"meaning-clusters  (ρ = {rho_s:.2f})",
+        zorder=2,
+    )
+    ax.scatter(
+        ax_r,
+        ay_r,
+        s=20,
+        color=ANCHOR_COLOR,
+        alpha=0.55,
+        edgecolors="none",
+        label=f"iconic anchors  (ρ = {rho_a:.2f})",
+        zorder=3,
+    )
+    ax.set_xlabel("how different they sound  (rescaled to [0, 1])")
+    ax.set_ylabel("how different the model thinks they are  (rescaled to [0, 1])")
+    ax.set_title("Both clouds, rescaled into the same box")
+    ax.grid(alpha=0.25, zorder=0)
+    ax.legend(loc="lower right", framealpha=0.95)
     fig.tight_layout()
     fig.savefig(out_path, dpi=140)
     plt.close(fig)
@@ -196,10 +256,15 @@ def plot_nw_alignment(out_path: Path) -> None:
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    plot_layer_sweep(OUT_DIR / "layer_sweep.png")
-    plot_embed_variants(OUT_DIR / "embed_variants.png")
-    plot_nw_alignment(OUT_DIR / "nw_alignment_schematic.png")
-    print(f"wrote 3 PNGs to {OUT_DIR}")
+    plot_two_populations(OUT_DIR / "two_populations.png")
+    plot_anchor_pairs(OUT_DIR / "anchor_pairs_scatter.png")
+    plot_substrate_pairs(OUT_DIR / "substrate_pairs_scatter.png")
+    plot_shape_overlay(OUT_DIR / "shape_overlay.png")
+    for stale in ("layer_sweep.png", "embed_variants.png", "nw_alignment_schematic.png"):
+        p = OUT_DIR / stale
+        if p.exists():
+            p.unlink()
+    print(f"wrote 4 PNGs to {OUT_DIR}")
 
 
 if __name__ == "__main__":
