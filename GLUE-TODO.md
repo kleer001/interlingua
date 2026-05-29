@@ -692,6 +692,48 @@ vs `but` sits mid-sentence, so last-token accuracy (0.853) and overlap
 population-coherence gate's step 3 (eyeball) is what distinguishes this
 from a real confound — see the gate proposal above.
 
+**Per-category feature eyeball.** Top |c| features per category,
+fetched from Neuronpedia and read by actual top-activating context
+(cached under `data/interim/neuronpedia/`):
+
+- *Conjunction — clean two-population.* fid=13081 fires on the literal
+  `and` token, fid=15460 on the literal `but` token. The mean-pool top
+  features *are* the conjunctions, confirming the low last-token
+  coherence is purely positional.
+- *Modality — partial.* fid=12287 is a crisp possibility feature
+  (`might`/`may`/`maybe`); the certainty/`will` pole is diffuse (one of
+  its top features is a formatting/punctuation feature, i.e. noise).
+- *Definiteness — weakest.* Despite 0.875–0.940 accuracy, the top
+  features are content/domain features (`STM`, `XML`, `company`), not
+  `a`/`the` markers. The direction separates but its SAE projection is
+  content-dominated — the two-population reading does not hold cleanly
+  here.
+
+So the two-population structure generalizes crisply for conjunction
+(and tense, plural), partially for modality, and weakly for
+definiteness. The mean/last coherence diagnostic ranked these
+correctly in advance.
+
+**Negation re-probe — the confound is the negator token, not the
+operator (#45).** Pooling the residual over the *object noun phrase
+only* — excluding the `will`/`not`/verb tokens — still separates
+negated from affirmative at 100% held-out accuracy, but the recovered
+direction no longer contains *any* of the surface confound features
+(4667, 1041, 6810, 1178). It is near-orthogonal to the whole-sentence
+direction (cos +0.25, top-10 overlap 1/10). Semantic negation genuinely
+propagates to the object representation; the whole-sentence/last-token
+confound was the literal negator's surface neighborhood dominating the
+pool. The object-span direction is itself diffuse (top_3_mass 0.0034,
+L0 13683) with one on-target top feature (fid=16253: `don't`/`can't`
+`'t`, `think`, `not`; auto-interp "skepticism or doubt") and the rest
+content-spread — i.e. negation, probed cleanly, is a distributed
+operator like the rest of Tier 1. Re-probe script:
+`scripts/path2_negation_reprobe.py`. **Lesson for the spec:** for
+operators realized as a discrete function word (negation, and likely
+articles/conjunctions), pool over a content span that excludes the
+marker token, or the direction will lock onto the marker's surface
+features instead of the operator's semantic scope.
+
 ---
 
 ## Path 3 — Attention-SAE re-extraction (optional)
