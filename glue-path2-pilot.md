@@ -112,11 +112,17 @@ For tense, K = 9 with the population above is yes.
 1. **Capture-method robustness is a diagnostic.** When mean-pool and
    last-token recover similar directions (cos > 0.9, top-10 overlap ≥ 8),
    the category is well-encoded. When they disagree (cos < 0.5, overlap
-   < 3), there's a confound — typically length differences between
-   positive and negative sides. The pilot tested both on negation
-   (cos = +0.30, overlap 1/10 — sentence-length confound) and past
-   tense (cos = +0.93, overlap 9/10 — clean) and the diagnostic
-   value held in both directions.
+   < 3), the direction is suspect. The pilot saw this on negation
+   (cos = +0.30, overlap 1/10) vs clean past tense (cos = +0.93,
+   overlap 9/10). The cross-category sweep (`scripts/path2_categories.py`,
+   recorded in `GLUE-TODO.md` Path 2) refined the reading of the
+   negation case: a length-matched negation frame (only `not` inserted)
+   still disagrees (cos +0.23, overlap 1/10) and lands on the same
+   confound features, so the cause is the literal negator's surface
+   neighborhood, *not* sentence-length. And low coherence is not always
+   a confound — a mid-sentence operator like conjunction (`and`/`but`)
+   disagrees because the last token misses it, not because the direction
+   is dirty. Use the two-population eyeball to tell the two apart.
 2. **Auto-interp labels are content-biased.** `gpt-4o-mini` labelled
    `fid=13390` as "recurring actions or events" when its top contexts
    are simply past-form verbs. A human-eyeball pass on actual top

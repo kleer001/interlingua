@@ -450,6 +450,48 @@ For each validated direction `d`:
    - **Inconclusive**: top_3_mass between 0.4 and 0.7. Flag for manual
      inspection.
 
+#### Population-coherence gate (proposed)
+
+The concentration gate above does not discriminate among Tier 1
+grammatical operators. Across six probed categories (tense, plural,
+definiteness, negation, modality, conjunction) `top_3_mass` ranges
+0.0025–0.011 — every operator lands far below not just the 0.7 sparse
+threshold but below the 0.4 diffuse threshold too. The concentration
+metric collapses to a constant "maximally diffuse" for all of them
+because the 16k decoder is non-orthogonal: any real direction projects
+with non-trivial magnitude onto thousands of features, so the L1 noise
+floor swamps the signal. The metric tells us *that* operators are
+diffuse; it cannot tell a clean distributed operator from a confounded
+one.
+
+The discriminating signal is **capture-method coherence**: project the
+direction recovered from mean-pool activations and the one from
+last-token activations onto the SAE, and compare them.
+
+- `mean_last_cos` — cosine between the two directions.
+- `mean_last_top10_overlap` — shared features in the top 10 by |c|.
+
+Proposed gate for a **clean distributed operator** (replacing the
+diffuse-vs-inconclusive split for high-L0 directions):
+
+1. Both pool methods reach held-out accuracy ≥ 0.9, AND
+2. `mean_last_cos ≥ 0.5` AND `mean_last_top10_overlap ≥ 4`, AND
+3. the top features by |c| split into category-aligned populations on
+   eyeball (the two-population check — past-like/present-like for tense,
+   plural-form/singular-form for number).
+
+Thresholds are set from the six-category sweep: clean operators
+(plural 0.81/7, modality 0.64/5, definiteness 0.69/4, tense 0.87–0.93/9)
+clear them; negation (0.23/1) fails and is correctly flagged as
+confounded. **Caveat:** low coherence has two causes — a surface
+confound (negation) *or* an operator that is not at the last token
+(conjunction: `and`/`but` sits mid-sentence, so last-token accuracy
+drops to 0.85 and overlap to 2/10 without any content confound). Step 3
+disambiguates: a confounded direction fails the population eyeball; a
+correctly-recovered mid-sentence operator passes it. For mid-sentence
+operators, prefer the mean-pool direction and do not penalize the
+last-token disagreement.
+
 ### Model sweep
 
 Run both Gemma 2 2B and Gemma 2 9B. Reasons:
@@ -595,7 +637,60 @@ AND L0 < 10`) may be too strict for grammatical operators in 16k SAEs
 — non-orthogonal decoder vectors raise the L1 noise floor so much
 that no real direction can hit 0.7. A population-check gate ("are the
 top-K features by |c|, for K matched to expected operator dimension,
-category-aligned?") may complement the concentration gate.
+category-aligned?") may complement the concentration gate. Drafted as
+the population-coherence gate above, calibrated on the cross-category
+sweep below.
+
+---
+
+### Cross-category sweep (2026-05-29) — five more Tier 1 categories
+
+The pilot pipeline extended to five additional Tier 1 contrasts on the
+same Gemma 2 2B layer-12 / gemmascope-res-16k setup. Runner:
+`scripts/path2_categories.py` (model + SAE load once, ~1 s of Stage B
+per category). Artifact: `data/processed/function_lexicon_probed.json`.
+
+| Category | N | acc (mean) | acc (last) | top_3_mass | L0 | mean/last cos | top-10 overlap | Verdict |
+| -------- | - | ---------- | ---------- | ---------- | -- | ------------- | -------------- | ------- |
+| plural (sg\|pl)        | 576 | 0.948 | 0.953 | 0.0050 | 12728 | +0.808 | 7/10 | DIFFUSE |
+| definiteness (a\|the)  | 576 | 0.875 | 0.940 | 0.0027 | 14714 | +0.690 | 4/10 | DIFFUSE |
+| negation (aff\|neg)    | 800 | 1.000 | 1.000 | 0.0107 |  9686 | +0.226 | 1/10 | DIFFUSE |
+| modality (will\|might) | 800 | 1.000 | 0.984 | 0.0025 | 14378 | +0.639 | 5/10 | DIFFUSE |
+| conjunction (and\|but) | 288 | 1.000 | 0.853 | 0.0036 | 13864 | +0.605 | 2/10 | DIFFUSE |
+
+**All five verdict DIFFUSE, same as tense.** No Tier 1 grammatical
+operator is sparse/lexical in the 16k SAE: `top_3_mass` is two to three
+orders of magnitude below the 0.7 gate for every one. The
+distributed-operator geometry is the rule, not a tense-specific quirk.
+
+**The two-population structure generalizes.** Plural (cleanest by
+mean/last coherence) splits exactly like tense: the plural-aligned top
+features fire on plural nouns and the `-s`/`-ations` morphology
+(fid=10678 on `beams`/`cancers`/`pressures`/`-ings`/`-ations`;
+fid=13561 on `goals`/`sentences`/`criteria`/`residues`), the
+singular-aligned features fire on singular count nouns (fid=2486 on
+`study`/`region`/`sample`/`value`/`result`). Auto-interp labels all
+four as content domains ("materials science", "sports statistics",
+"women's rights") — the content-bias lesson holds a third time.
+
+**Negation's confound is not a length artifact.** The pilot attributed
+negation's mean/last disagreement (cos +0.30) to sentence-length
+differences. This sweep used a length-matched frame — `X will V O.`
+vs `X will not V O.`, identical except the inserted `not` — and the
+disagreement persists (cos +0.226, overlap 1/10) with the *same*
+top features as the v1 confound zoo (4667, 1041, 6810, 1178: discourse
+markers, `<bos>`, legal disclaimers, capital `M`). Length-matching does
+not remove it: the last-token direction is dominated by the literal
+negator's surface neighborhood, not an abstract polarity operator.
+Negation needs a different probe (e.g. content-span pooling that
+excludes the negator token, or contrastive pairs that flip polarity
+without a surface negation marker) before it can be validated.
+
+**Conjunction's low coherence is positional, not a confound.** `and`
+vs `but` sits mid-sentence, so last-token accuracy (0.853) and overlap
+(2/10) are low while mean-pool separates perfectly (1.000). The
+population-coherence gate's step 3 (eyeball) is what distinguishes this
+from a real confound — see the gate proposal above.
 
 ---
 
